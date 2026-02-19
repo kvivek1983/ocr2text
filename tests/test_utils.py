@@ -36,3 +36,32 @@ def test_fetch_image_url():
         result = fetch_image_url("https://example.com/image.jpg")
 
     assert result == b"downloaded image"
+
+
+from app.utils.text_utils import clean_text, normalize_amount, normalize_date
+
+
+def test_clean_text():
+    raw = "  Hello   World \n\n  Foo  "
+    assert clean_text(raw) == "Hello World\nFoo"
+
+
+def test_clean_text_removes_special_chars():
+    raw = "Total: ₹1,234.00"
+    assert clean_text(raw) == "Total: ₹1,234.00"
+
+
+def test_normalize_amount():
+    assert normalize_amount("₹1,234.00") == "1234.00"
+    assert normalize_amount("Rs. 1,234.00") == "1234.00"
+    assert normalize_amount("Rs.1234") == "1234"
+    assert normalize_amount("1,23,456.78") == "123456.78"
+    assert normalize_amount("") == ""
+
+
+def test_normalize_date():
+    assert normalize_date("15/01/2024") == "2024-01-15"
+    assert normalize_date("15-01-2024") == "2024-01-15"
+    assert normalize_date("01/15/2024") == "2024-01-15"
+    assert normalize_date("2024-01-15") == "2024-01-15"
+    assert normalize_date("not a date") is None
