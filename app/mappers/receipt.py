@@ -8,27 +8,33 @@ RECEIPT_FIELD_ALIASES: Dict[str, List[str]] = {
     "vendor": [],
     "gstin": ["gstin", "gst no", "gst in"],
     "date": ["date", "dt", "bill date"],
-    "bill_no": ["bill no", "receipt no", "invoice no"],
-    "total": ["grand total", "total amount", "net amount", "total"],
+    "bill_no": ["billno", "bill no", "receipt no", "invoice no"],
+    "total": ["bill total", "grand total", "total amount", "net amount", "total"],
     "subtotal": ["subtotal", "sub total"],
     "sgst": ["sgst"],
     "cgst": ["cgst"],
     "igst": ["igst"],
+    "service_charge": ["service charge"],
     "tax": ["tax", "vat"],
     "payment_method": ["payment mode", "payment method", "payment"],
 }
 
 # Patterns that indicate the start of the items table header
 _ITEM_HEADER_RE = re.compile(
-    r"(?i)item|description|particular", re.IGNORECASE
+    r"(?i)\b(item|description|particular)\b",
 )
 # Patterns that indicate we've moved past the items section
 _ITEM_END_RE = re.compile(
-    r"(?i)(sub\s*total|subtotal|total\s*qty|grand\s*total|sgst|cgst|igst|tax|thank)",
+    r"(?i)^\s*(sub\s*total|subtotal|total\s*qty|grand\s*total|bill\s*total"
+    r"|total\b|sgst|cgst|igst|tax\b|service\s*charge|thank|round)",
 )
-# A line item: text followed by qty, price, amount numbers
-_LINE_ITEM_RE = re.compile(
+# A line item: text followed by qty, price, amount numbers (4-column: name qty price amount)
+_LINE_ITEM_4COL_RE = re.compile(
     r"^(.+?)\s+(\d+)\s+([\d,.]+)\s+([\d,.]+)\s*$"
+)
+# A line item: text followed by qty and amount (3-column: name qty amount)
+_LINE_ITEM_3COL_RE = re.compile(
+    r"^(.+?)\s+(\d+)\s+([\d,.]+)\s*$"
 )
 
 
@@ -55,17 +61,22 @@ class ReceiptMapper(BaseMapper):
                 continue
             for alias in aliases:
                 pattern = re.compile(
-                    rf"(?i){re.escape(alias)}\s*[.:\-]*\s*(.+)",
+                    rf"(?i)\b{re.escape(alias)}\s*[.:\-]*\s*(.+)",
                 )
                 for line in lines:
                     match = pattern.search(line)
                     if match and label not in used_labels:
                         value = match.group(1).strip()
-                        # For total/subtotal, try to extract just the numeric part
-                        if label in ("total", "subtotal", "sgst", "cgst", "igst", "tax"):
+                        # For numeric fields, extract just the amount
+                        if label in ("total", "subtotal", "sgst", "cgst", "igst",
+                                     "tax", "service_charge"):
                             num = _extract_amount(value)
                             if num:
                                 value = num
+                        # For bill_no, stop at next key-value pair on same line
+                        if label == "bill_no":
+                            cut = re.split(r"\s{2,}|\t", value)
+                            value = cut[0].strip()
                         if value:
                             fields.append({"label": label, "value": value})
                             used_labels.add(label)
@@ -114,18 +125,27 @@ def _extract_line_items(lines: List[str]) -> List[str]:
             continue
 
         # Detect end of items section
-        if in_items and _ITEM_END_RE.search(stripped):
+        if in_items and _ITEM_END_RE.match(stripped):
             break
 
         if not in_items:
             continue
 
-        # Try to parse: ItemName  Qty  Price  Amount
-        match = _LINE_ITEM_RE.match(stripped)
+        # Try 4-column: ItemName  Qty  Price  Amount
+        match = _LINE_ITEM_4COL_RE.match(stripped)
         if match:
-            name = match.group(1).strip()
+            name = _clean_item_name(match.group(1))
             qty = match.group(2)
             amount = match.group(4)
+            items.append(f"{name} x {qty} = {amount}")
+            continue
+
+        # Try 3-column: ItemName  Qty  Amount
+        match = _LINE_ITEM_3COL_RE.match(stripped)
+        if match:
+            name = _clean_item_name(match.group(1))
+            qty = match.group(2)
+            amount = match.group(3)
             items.append(f"{name} x {qty} = {amount}")
             continue
 
@@ -134,6 +154,11 @@ def _extract_line_items(lines: List[str]) -> List[str]:
         text_part = re.sub(r"[\d,]+\.?\d+", "", stripped).strip(" \t-:,")
         if nums and text_part and len(text_part) > 2:
             amount = nums[-1] if len(nums) > 1 else nums[0]
-            items.append(f"{text_part} = {amount}")
+            items.append(f"{_clean_item_name(text_part)} = {amount}")
 
     return items
+
+
+def _clean_item_name(name: str) -> str:
+    """Normalize whitespace in an item name."""
+    return re.sub(r"\s+", " ", name).strip()

@@ -70,6 +70,48 @@ Grand Total: 10101.00"""
     assert len(line_items) >= 2
 
 
+def test_receipt_mapper_bill_total_and_service_charge():
+    text = """THE GAME PALACIO
+PUNE, MAHARASHTRA-411001
+INVOICE
+Table : 51-
+BillNo : F-17568  Date : 07-Feb-2026
+Waiter : Sahensha  Operator : ATUL
+
+Description          Qty     Amount
+CORN CRUNCH           1      425.00
+NACHOS                1      565.00
+MINERAL WATER         3      495.00
+
+Total :                     6080.00
+Service Charge 10% :         608.00
+2.5% SGST on Food Taxable :  144.51
+2.5% CGST on Food Taxable :  144.51
+Bill Total :                7022.00
+
+GST No: 27ABUFM5822H1ZS
+Thank You !!"""
+
+    mapper = ReceiptMapper()
+    fields = mapper.map_fields(text)
+    field_dict = {f["label"]: f["value"] for f in fields}
+
+    assert field_dict["vendor"] == "THE GAME PALACIO"
+    assert field_dict["bill_no"] == "F-17568"
+    assert field_dict["date"] == "07-Feb-2026"
+    assert field_dict["total"] == "7022.00"
+    assert field_dict["sgst"] == "144.51"
+    assert field_dict["cgst"] == "144.51"
+    assert field_dict["service_charge"] == "608.00"
+    assert field_dict["gstin"] == "27ABUFM5822H1ZS"
+
+    line_items = [f["value"] for f in fields if f["label"] == "line_item"]
+    assert len(line_items) == 3
+    assert "CORN CRUNCH x 1 = 425.00" in line_items
+    assert "NACHOS x 1 = 565.00" in line_items
+    assert "MINERAL WATER x 3 = 495.00" in line_items
+
+
 def test_receipt_mapper_document_type():
     mapper = ReceiptMapper()
     assert mapper.document_type() == "receipt"
