@@ -68,6 +68,7 @@ class ExtractionService:
         return {
             "success": True,
             "document_type": document_type,
+            "engine_used": engine,
             "confidence": confidence,
             "fields": fields,
             "raw_text": raw_text if include_raw_text else None,

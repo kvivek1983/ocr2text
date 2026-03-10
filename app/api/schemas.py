@@ -30,6 +30,7 @@ class QualityFeedback(BaseModel):
 class ExtractionResponse(BaseModel):
     success: bool
     document_type: Optional[str] = None
+    engine_used: Optional[str] = None
     confidence: float = 0.0
     fields: List[FieldResult] = []
     raw_text: Optional[str] = None

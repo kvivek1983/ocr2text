@@ -37,7 +37,11 @@ def health():
 
 @router.get("/engines")
 def list_engines():
-    return {"engines": engine_router.list_engines()}
+    return {
+        "engines": engine_router.list_engines(),
+        "default_engine": settings.DEFAULT_ENGINE,
+        "engine_map": settings.ENGINE_MAP,
+    }
 
 
 def _build_response(result: dict) -> ExtractionResponse:
@@ -47,6 +51,7 @@ def _build_response(result: dict) -> ExtractionResponse:
     return ExtractionResponse(
         success=result["success"],
         document_type=result["document_type"],
+        engine_used=result.get("engine_used"),
         confidence=result["confidence"],
         fields=[FieldResult(**f) for f in result["fields"]],
         raw_text=result["raw_text"],
@@ -58,12 +63,14 @@ def _build_response(result: dict) -> ExtractionResponse:
 @router.post("/extract", response_model=ExtractionResponse)
 def extract(request: ExtractionRequest):
     image_bytes = _get_image_bytes(request)
-    engine = request.engine if request.engine != "auto" else settings.DEFAULT_ENGINE
+    doc_type = request.document_type
+    engine = (request.engine if request.engine != "auto"
+              else settings.get_engine_for_type(doc_type))
 
     result = extraction_service.extract(
         image_bytes=image_bytes,
         engine=engine,
-        document_type=request.document_type,
+        document_type=doc_type,
         include_raw_text=request.include_raw_text,
     )
 
@@ -73,7 +80,8 @@ def extract(request: ExtractionRequest):
 def _make_type_endpoint(doc_type: str):
     def endpoint(request: ExtractionRequest):
         image_bytes = _get_image_bytes(request)
-        engine = request.engine if request.engine != "auto" else settings.DEFAULT_ENGINE
+        engine = (request.engine if request.engine != "auto"
+                  else settings.get_engine_for_type(doc_type))
 
         result = extraction_service.extract(
             image_bytes=image_bytes,
