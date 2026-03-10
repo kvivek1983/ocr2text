@@ -1,0 +1,108 @@
+[
+  {
+    "image_id": "sample_gj_front",
+    "engine": "tesseract",
+    "preprocessing": "raw",
+    "image_quality_score": 0.64,
+    "image_quality_issues": [
+      "Low resolution (468x832). Use at least 800x600 for best results.",
+      "Low contrast. Ensure the document is well-lit and text is visible."
+    ],
+    "ocr_confidence": 0.619,
+    "processing_time_ms": 2088,
+    "raw_text_length": 136,
+    "raw_text_lines": 9,
+    "detected_doc_type": "unknown",
+    "doc_type_confidence": 0.0,
+    "rc_field_count": 0,
+    "rc_fields": {},
+    "raw_text": "ai <a i.\n\nPATEL MITTAL,\n\nCAR TAX Son/Daughter ite ot\n= BHARATBHAI\n\nPETIONG 7-302 \u00a9 INDRAPATH FLAT, OPP SARVODAY-3,\nv SHATLODIA AHMEDABAD"
+  },
+  {
+    "image_id": "sample_gj_front",
+    "engine": "tesseract",
+    "preprocessing": "full_pipeline",
+    "image_quality_score": 0.64,
+    "image_quality_issues": [
+      "Low resolution (468x832). Use at least 800x600 for best results.",
+      "Low contrast. Ensure the document is well-lit and text is visible."
+    ],
+    "ocr_confidence": 0.46,
+    "processing_time_ms": 642,
+    "raw_text_length": 217,
+    "raw_text_lines": 11,
+    "detected_doc_type": "unknown",
+    "doc_type_confidence": 0.0,
+    "rc_field_count": 0,
+    "rc_fields": {},
+    "raw_text": ". \"=\" Government of Gujarat .\nGSE OO\n{ =a OS fe No \u00abDate of Reg. i\n- \u00bb (GJOIDXE778  zsEZ12 i\nSoe hus No. Bo ome gg\nMBIBZzisT200087880 sre\nEngine Wo. 13 x : Revise alininil\n\u2018Cunt tare 2\n| PATEL MITTAL\ny\nsoorDanghere of"
+  },
+  {
+    "image_id": "195945_front",
+    "engine": "tesseract",
+    "preprocessing": "raw",
+    "image_quality_score": 0.75,
+    "image_quality_issues": [
+      "Image appears blurry. Hold the camera steady and ensure focus."
+    ],
+    "ocr_confidence": 0.338,
+    "processing_time_ms": 463,
+    "raw_text_length": 38,
+    "raw_text_lines": 5,
+    "detected_doc_type": "unknown",
+    "doc_type_confidence": 0.0,
+    "rc_field_count": 0,
+    "rc_fields": {},
+    "raw_text": "MAMI)\nMerete Mineo\nTM |W\nCito\nPULA, Ae"
+  },
+  {
+    "image_id": "195945_front",
+    "engine": "tesseract",
+    "preprocessing": "full_pipeline",
+    "image_quality_score": 0.75,
+    "image_quality_issues": [
+      "Image appears blurry. Hold the camera steady and ensure focus."
+    ],
+    "ocr_confidence": 0.145,
+    "processing_time_ms": 727,
+    "raw_text_length": 8,
+    "raw_text_lines": 3,
+    "detected_doc_type": "unknown",
+    "doc_type_confidence": 0.0,
+    "rc_field_count": 0,
+    "rc_fields": {},
+    "raw_text": "Se\n\nhee,"
+  },
+  {
+    "image_id": "195945_back",
+    "engine": "tesseract",
+    "preprocessing": "raw",
+    "image_quality_score": 0.82,
+    "image_quality_issues": [],
+    "ocr_confidence": 0.597,
+    "processing_time_ms": 490,
+    "raw_text_length": 98,
+    "raw_text_lines": 8,
+    "detected_doc_type": "unknown",
+    "doc_type_confidence": 0.0,
+    "rc_field_count": 0,
+    "rc_fields": {},
+    "raw_text": "Indian Minion Vehicle Regist\nIssaedibi Government\n\nFuri\nPETROUCNG\n\nEmission Norms\nBIVARAT STAGE Vi"
+  },
+  {
+    "image_id": "195945_back",
+    "engine": "tesseract",
+    "preprocessing": "full_pipeline",
+    "image_quality_score": 0.82,
+    "image_quality_issues": [],
+    "ocr_confidence": 0.0,
+    "processing_time_ms": 800,
+    "raw_text_length": 0,
+    "raw_text_lines": 0,
+    "detected_doc_type": "unknown",
+    "doc_type_confidence": 0.0,
+    "rc_field_count": 0,
+    "rc_fields": {},
+    "raw_text": ""
+  }
+]

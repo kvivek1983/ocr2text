@@ -1,0 +1,55 @@
+================================================================================
+OCR BENCHMARK REPORT
+================================================================================
+
+
+────────────────────────────────────────────────────────────
+Image: sample_gj_front
+────────────────────────────────────────────────────────────
+Image Quality Score: 0.64
+Quality Issues: Low resolution (468x832). Use at least 800x600 for best results.; Low contrast. Ensure the document is well-lit and text is visible.
+
+Engine       Preprocess               Conf Type         Fields    Time
+----------------------------------------------------------------------
+easyocr      raw                     0.62 rc_book           5   5958ms
+
+  BEST: easyocr + raw (5 fields, 0.62 conf)
+  Extracted fields:
+    owner_name: MBJBZZBT200037980
+    address: PETICNG
+    fuel_type: Address
+    chassis_number: MBJBZZBT200037980
+    engine_number: 0612012
+
+────────────────────────────────────────────────────────────
+Image: 195945_front
+────────────────────────────────────────────────────────────
+Image Quality Score: 0.75
+Quality Issues: Image appears blurry. Hold the camera steady and ensure focus.
+
+Engine       Preprocess               Conf Type         Fields    Time
+----------------------------------------------------------------------
+easyocr      raw                     0.10 unknown           0   8275ms
+
+────────────────────────────────────────────────────────────
+Image: 195945_back
+────────────────────────────────────────────────────────────
+Image Quality Score: 0.82
+
+Engine       Preprocess               Conf Type         Fields    Time
+----------------------------------------------------------------------
+easyocr      raw                     0.24 rc_book           2   6457ms
+
+  BEST: easyocr + raw (2 fields, 0.24 conf)
+  Extracted fields:
+    chassis_number: RAVIDAAAASHANATH
+    engine_number: 9112026
+
+
+================================================================================
+OVERALL ENGINE RANKING
+================================================================================
+
+Combo                                Avg Conf  Avg Fields  RC Docs  Avg Time
+---------------------------------------------------------------------------
+easyocr + raw                          0.321        2.3        2     6896ms

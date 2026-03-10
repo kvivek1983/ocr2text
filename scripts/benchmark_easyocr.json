@@ -1,0 +1,64 @@
+[
+  {
+    "image_id": "sample_gj_front",
+    "engine": "easyocr",
+    "preprocessing": "raw",
+    "image_quality_score": 0.64,
+    "image_quality_issues": [
+      "Low resolution (468x832). Use at least 800x600 for best results.",
+      "Low contrast. Ensure the document is well-lit and text is visible."
+    ],
+    "ocr_confidence": 0.625,
+    "processing_time_ms": 5958,
+    "raw_text_length": 295,
+    "raw_text_lines": 24,
+    "detected_doc_type": "rc_book",
+    "doc_type_confidence": 0.4,
+    "rc_field_count": 5,
+    "rc_fields": {
+      "owner_name": "MBJBZZBT200037980",
+      "address": "PETICNG",
+      "fuel_type": "Address",
+      "chassis_number": "MBJBZZBT200037980",
+      "engine_number": "0612012"
+    },
+    "raw_text": "Government of Gujarat \nCertificate of Registration\nDale\nof Reg:\nGJO1DX6778\n25/0612012\nOwner\nMBJBZZBT200037980\nZNRV053813\nOvanership:\nDate\nPATEL MITTAL\nClass\nCAR TAXI\nSon{Daughter/Wife of\nBHARATBHAI\nFuel Used\nAddress\nPETICNG\nT-302 Cio INDRAPATH FLAT, Opp SARVODAY-\nGpX\nGhATLOnia\nAHMFDABAD\nVehicle"
+  },
+  {
+    "image_id": "195945_front",
+    "engine": "easyocr",
+    "preprocessing": "raw",
+    "image_quality_score": 0.75,
+    "image_quality_issues": [
+      "Image appears blurry. Hold the camera steady and ensure focus."
+    ],
+    "ocr_confidence": 0.101,
+    "processing_time_ms": 8275,
+    "raw_text_length": 180,
+    "raw_text_lines": 34,
+    "detected_doc_type": "unknown",
+    "doc_type_confidence": 0.0,
+    "rc_field_count": 0,
+    "rc_fields": {},
+    "raw_text": "Mar 9,2026\n6\n02 43 PM\nAon Mumbre\na #oo\nNAZSAJ1776\nMamn rcaa(TD\nDFl\nWH\ncauim\nKaUNUAMLta\nTt\nVll\nic\n@\n;\na\ns\nGn\nLcd\nCn Cne\ns\ne@a\nas\nei0\nBt\na\nPne\nMAhA4 Mataea #aaatd\nRdanran\nDual\nD\nk\nS\""
+  },
+  {
+    "image_id": "195945_back",
+    "engine": "easyocr",
+    "preprocessing": "raw",
+    "image_quality_score": 0.82,
+    "image_quality_issues": [],
+    "ocr_confidence": 0.237,
+    "processing_time_ms": 6457,
+    "raw_text_length": 458,
+    "raw_text_lines": 38,
+    "detected_doc_type": "rc_book",
+    "doc_type_confidence": 0.2,
+    "rc_field_count": 2,
+    "rc_fields": {
+      "chassis_number": "RAVIDAAAASHANATH",
+      "engine_number": "9112026"
+    },
+    "raw_text": "Mar 9112026/\n{\"\n02.43 PM\nUnlon Vehicle Registration Certif\nKndit\nlulaevetnment of Maharashtaa\nOx\nNumber\nDate 0f Regna\nAegn; Valldity\nMenKut\n226\n71.10-.2014\nAs per Fitnate\nNlmdes\nOaner\n16p5ri9}1369\nSerial\n3\nAlotor Nuinbet\nM\n4a34\n8\nNamie\nKhhe\nTouRS AND TRAVELS\n8\nFud\nKor/Wife\nQaughter of (In case of Individual Ovinet}\n(PETRoUcNd\n1\nAadiess\nEmissien Nctins\nPROP RAVIDAAAASHANATH RATHOD MAN RDAD HOLI\nBHARATsiaGEVI\nNEAR SEVALALMEAR TAL LOHARA Dhafash < Mr\n413666"
+  }
+]

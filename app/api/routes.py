@@ -5,6 +5,7 @@ from app.api.schemas import (
     ExtractionRequest,
     ExtractionResponse,
     FieldResult,
+    QualityFeedback,
 )
 from app.config import settings
 from app.core.extraction_service import ExtractionService
@@ -36,35 +37,51 @@ def health():
 
 @router.get("/engines")
 def list_engines():
-    return {"engines": engine_router.list_engines()}
+    return {
+        "engines": engine_router.list_engines(),
+        "default_engine": settings.DEFAULT_ENGINE,
+        "engine_map": settings.ENGINE_MAP,
+    }
+
+
+def _build_response(result: dict) -> ExtractionResponse:
+    feedback = None
+    if result.get("feedback"):
+        feedback = QualityFeedback(**result["feedback"])
+    return ExtractionResponse(
+        success=result["success"],
+        document_type=result["document_type"],
+        engine_used=result.get("engine_used"),
+        confidence=result["confidence"],
+        fields=[FieldResult(**f) for f in result["fields"]],
+        raw_text=result["raw_text"],
+        processing_time_ms=result["processing_time_ms"],
+        feedback=feedback,
+    )
 
 
 @router.post("/extract", response_model=ExtractionResponse)
 def extract(request: ExtractionRequest):
     image_bytes = _get_image_bytes(request)
-    engine = request.engine if request.engine != "auto" else settings.DEFAULT_ENGINE
+    doc_type = request.document_type
+    engine = (request.engine if request.engine != "auto"
+              else settings.get_engine_for_type(doc_type))
 
     result = extraction_service.extract(
         image_bytes=image_bytes,
         engine=engine,
-        document_type=request.document_type,
+        document_type=doc_type,
         include_raw_text=request.include_raw_text,
     )
 
-    return ExtractionResponse(
-        success=result["success"],
-        document_type=result["document_type"],
-        confidence=result["confidence"],
-        fields=[FieldResult(**f) for f in result["fields"]],
-        raw_text=result["raw_text"],
-        processing_time_ms=result["processing_time_ms"],
-    )
+    return _build_response(result)
 
 
 def _make_type_endpoint(doc_type: str):
     def endpoint(request: ExtractionRequest):
         image_bytes = _get_image_bytes(request)
-        engine = request.engine if request.engine != "auto" else settings.DEFAULT_ENGINE
+        engine = (request.engine if request.engine != "auto"
+                  else settings.get_engine_for_type(doc_type))
 
         result = extraction_service.extract(
             image_bytes=image_bytes,
@@ -73,14 +90,7 @@ def _make_type_endpoint(doc_type: str):
             include_raw_text=request.include_raw_text,
         )
 
-        return ExtractionResponse(
-            success=result["success"],
-            document_type=result["document_type"],
-            confidence=result["confidence"],
-            fields=[FieldResult(**f) for f in result["fields"]],
-            raw_text=result["raw_text"],
-            processing_time_ms=result["processing_time_ms"],
-        )
+        return _build_response(result)
 
     return endpoint
 

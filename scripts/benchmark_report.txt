@@ -1,0 +1,46 @@
+================================================================================
+OCR BENCHMARK REPORT
+================================================================================
+
+
+────────────────────────────────────────────────────────────
+Image: sample_gj_front
+────────────────────────────────────────────────────────────
+Image Quality Score: 0.64
+Quality Issues: Low resolution (468x832). Use at least 800x600 for best results.; Low contrast. Ensure the document is well-lit and text is visible.
+
+Engine       Preprocess               Conf Type         Fields    Time
+----------------------------------------------------------------------
+tesseract    raw                     0.62 unknown           0   2088ms
+tesseract    full_pipeline           0.46 unknown           0    642ms
+
+────────────────────────────────────────────────────────────
+Image: 195945_front
+────────────────────────────────────────────────────────────
+Image Quality Score: 0.75
+Quality Issues: Image appears blurry. Hold the camera steady and ensure focus.
+
+Engine       Preprocess               Conf Type         Fields    Time
+----------------------------------------------------------------------
+tesseract    raw                     0.34 unknown           0    463ms
+tesseract    full_pipeline           0.14 unknown           0    727ms
+
+────────────────────────────────────────────────────────────
+Image: 195945_back
+────────────────────────────────────────────────────────────
+Image Quality Score: 0.82
+
+Engine       Preprocess               Conf Type         Fields    Time
+----------------------------------------------------------------------
+tesseract    raw                     0.60 unknown           0    490ms
+tesseract    full_pipeline           0.00 unknown           0    800ms
+
+
+================================================================================
+OVERALL ENGINE RANKING
+================================================================================
+
+Combo                                Avg Conf  Avg Fields  RC Docs  Avg Time
+---------------------------------------------------------------------------
+tesseract + raw                        0.518        0.0        0     1013ms
+tesseract + full_pipeline              0.202        0.0        0      723ms
