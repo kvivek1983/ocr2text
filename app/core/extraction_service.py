@@ -50,10 +50,15 @@ class ExtractionService:
             document_type, _det_conf = self.detector.detect(raw_text)
 
         # 5. Map fields using type-specific mapper
+        #    Use spatial mapping (bounding boxes) when blocks are available
+        blocks = ocr_result.get("blocks", [])
         fields: List[Dict[str, str]] = []
         try:
             mapper = get_mapper(document_type)
-            fields = mapper.map_fields(raw_text)
+            if blocks:
+                fields = mapper.map_fields_spatial(blocks, raw_text)
+            else:
+                fields = mapper.map_fields(raw_text)
         except ValueError:
             fields = self.field_extractor.extract(raw_text)
 

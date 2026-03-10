@@ -152,6 +152,63 @@ class RCBookMapper(BaseMapper):
 
         return fields
 
+    def map_fields_spatial(
+        self, blocks: List[Dict], raw_text: str
+    ) -> List[Dict[str, str]]:
+        """Extract fields using spatial/positional bounding box mapping.
+
+        Uses block coordinates to handle multi-column layouts (e.g.,
+        Maharashtra RC with labels on one row and values on the next).
+        Falls back to text-based extraction for fields the spatial
+        mapper misses, and uses regex patterns as final fallback.
+        """
+        from app.core.spatial_mapper import spatial_extract_fields
+
+        if not blocks:
+            return self.map_fields(raw_text)
+
+        # Primary: spatial extraction using bounding boxes
+        spatial_fields = spatial_extract_fields(
+            blocks, RC_BOOK_FIELD_ALIASES,
+            y_tolerance=0.5, x_tolerance=50.0,
+        )
+
+        # Post-process spatial results
+        used_labels: set = set()
+        fields: List[Dict[str, str]] = []
+        for f in spatial_fields:
+            value = _postprocess(f["label"], f["value"])
+            if value:
+                fields.append({"label": f["label"], "value": value})
+                used_labels.add(f["label"])
+
+        # Fallback: text-based extraction for fields spatial mapper missed
+        lines = raw_text.strip().split("\n") if raw_text.strip() else []
+        for label, aliases in RC_BOOK_FIELD_ALIASES.items():
+            if label in used_labels:
+                continue
+            value = _find_by_aliases(lines, aliases)
+            if value:
+                value = _postprocess(label, value)
+                if value:
+                    fields.append({"label": label, "value": value})
+                    used_labels.add(label)
+
+        # Final fallback: regex patterns for critical fields
+        for label, pattern in _DIRECT_PATTERNS.items():
+            if label in used_labels:
+                continue
+            value = _find_by_pattern(lines, pattern)
+            if value:
+                fields.append({"label": label, "value": value})
+                used_labels.add(label)
+
+        # Address expansion
+        if "address" in used_labels:
+            _expand_address(fields, lines)
+
+        return fields
+
     def document_type(self) -> str:
         return "rc_book"
 
