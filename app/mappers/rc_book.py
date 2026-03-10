@@ -7,53 +7,96 @@ from .base import BaseMapper
 # Patterns are tried with flexible separator: optional colon/dash/dot + spaces.
 RC_BOOK_FIELD_ALIASES: Dict[str, List[str]] = {
     "registration_number": [
-        "reg. no", "reg no", "registration no", "vehicle no", "regd. no",
-        "regd no",
+        "regn. number", "regn number", "reg. no", "reg no",
+        "registration no", "vehicle no", "regd. no", "regd no",
     ],
     "registration_date": [
-        "date of reg", "date of registration", "reg date", "regd date",
-        "date of regd",
+        "date of regn", "date of reg", "date of registration",
+        "reg date", "regd date", "date of regd",
+    ],
+    "registration_validity": [
+        "regn. validity", "regn validity", "registration validity",
+        "valid upto", "validity",
     ],
     "owner_name": [
         "owner name", "owner's name", "registered owner", "owner",
     ],
     "owner_serial_number": [
-        "owner sr. no", "owner sr no", "owner serial no",
+        "owner sr. no", "owner sr no", "owner serial no", "owner serial",
     ],
     "father_or_spouse_name": [
-        "son/daughter/wife of", "s/d/w of", "son/daughter of",
-        "s/o", "d/o", "w/o", "s/d/o",
+        "son/daughter/wife of", "son / wife / daughter of",
+        "son/daughter of", "s/d/w of", "s/o", "d/o", "w/o", "s/d/o",
     ],
     "address": ["address"],
     "vehicle_class": [
         "vehicle class", "class of vehicle", "veh. class", "veh class",
+    ],
+    "body_type": [
         "body type",
     ],
     "vehicle_make": [
-        "vehicle make", "make", "manufacturer", "maker's name",
-        "maker name",
+        "maker's name", "maker name", "vehicle make", "make",
+        "manufacturer",
     ],
-    "vehicle_model": ["model", "vehicle model"],
+    "vehicle_model": [
+        "model name", "model", "vehicle model",
+    ],
     "fuel_type": [
         "fuel used", "fuel type", "type of fuel", "fuel",
     ],
     "engine_number": [
-        "engine no", "eng. no", "eng no",
+        "engine / motor number", "engine/motor number",
+        "engine no", "eng. no", "eng no", "motor number",
     ],
     "chassis_number": [
-        "chassis no", "ch. no", "ch no", "chasis no",
+        "chassis number", "chassis no", "ch. no", "ch no", "chasis no",
     ],
     "ownership_transfer_date": [
         "ownership tr. date", "ownership tr date", "ownership transfer date",
     ],
     "fitness_validity": [
-        "fitness upto", "fitness valid till", "valid till", "valid upto",
+        "fitness upto", "fitness valid till", "valid till",
     ],
     "seating_capacity": [
         "seating capacity", "seat cap", "seats",
+        "seating (in all)", "seating",
     ],
     "color": ["colour", "color"],
-    "rto": ["rto", "registering authority"],
+    "emission_norms": [
+        "emission norms", "emission norm", "bharat stage",
+    ],
+    "rto": [
+        "registration authority", "registering authority", "rto",
+    ],
+    "financer_name": [
+        "financer name", "financier name", "hypothecation",
+    ],
+    "cubic_capacity": [
+        "cubic capacity", "cc",
+    ],
+    "horse_power": [
+        "horse power", "hp", "bhp",
+    ],
+    "wheel_base": [
+        "wheel base",
+    ],
+    "unladen_weight": [
+        "unladen", "kerb weight",
+    ],
+    "laden_weight": [
+        "laden", "gross vehicle weight",
+    ],
+    "number_of_cylinders": [
+        "number of cylinders", "no. of cylinders", "cylinders",
+    ],
+    "month_year_of_manufacture": [
+        "month-year of mfg", "month year of mfg", "year of manufacture",
+        "year of mfg", "mfg year",
+    ],
+    "card_issue_date": [
+        "card issue date",
+    ],
     "state": ["state"],
 }
 
