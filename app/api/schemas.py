@@ -21,6 +21,12 @@ class FieldResult(BaseModel):
     value: str
 
 
+class QualityFeedback(BaseModel):
+    quality_level: str = "good"  # "good", "acceptable", "poor"
+    image_quality_score: float = 0.0
+    messages: List[str] = []
+
+
 class ExtractionResponse(BaseModel):
     success: bool
     document_type: Optional[str] = None
@@ -28,6 +34,7 @@ class ExtractionResponse(BaseModel):
     fields: List[FieldResult] = []
     raw_text: Optional[str] = None
     processing_time_ms: int = 0
+    feedback: Optional[QualityFeedback] = None
 
 
 class ComparisonResponse(BaseModel):

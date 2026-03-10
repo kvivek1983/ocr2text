@@ -1,11 +1,13 @@
 # app/core/extraction_service.py
 from typing import Any, Dict, List, Optional
 
+from app.config import settings
 from app.core.document_detector import DocumentDetector
 from app.core.field_extractor import FieldExtractor
 from app.core.preprocessor import ImagePreprocessor
 from app.core.router import EngineRouter
 from app.mappers import get_mapper
+from app.utils.quality import assess_image_quality, generate_feedback
 
 
 class ExtractionService:
@@ -29,10 +31,13 @@ class ExtractionService:
         include_raw_text: bool = True,
     ) -> Dict[str, Any]:
         """Run full extraction pipeline."""
-        # 1. Preprocess
+        # 1. Assess image quality (on original image, before preprocessing)
+        image_quality = assess_image_quality(image_bytes)
+
+        # 2. Preprocess
         processed = self.preprocessor.process(image_bytes)
 
-        # 2. OCR
+        # 3. OCR
         ocr_engine = self.router.get_engine(engine)
         ocr_result = ocr_engine.extract(processed)
 
@@ -40,17 +45,25 @@ class ExtractionService:
         confidence = ocr_result["confidence"]
         processing_time_ms = ocr_result["processing_time_ms"]
 
-        # 3. Detect document type (if not provided)
+        # 4. Detect document type (if not provided)
         if not document_type:
             document_type, _det_conf = self.detector.detect(raw_text)
 
-        # 4. Map fields using type-specific mapper
+        # 5. Map fields using type-specific mapper
         fields: List[Dict[str, str]] = []
         try:
             mapper = get_mapper(document_type)
             fields = mapper.map_fields(raw_text)
         except ValueError:
             fields = self.field_extractor.extract(raw_text)
+
+        # 6. Generate quality feedback
+        feedback = generate_feedback(
+            image_quality=image_quality,
+            confidence=confidence,
+            confidence_threshold=settings.CONFIDENCE_THRESHOLD,
+            fields_count=len(fields),
+        )
 
         return {
             "success": True,
@@ -59,4 +72,5 @@ class ExtractionService:
             "fields": fields,
             "raw_text": raw_text if include_raw_text else None,
             "processing_time_ms": processing_time_ms,
+            "feedback": feedback,
         }
