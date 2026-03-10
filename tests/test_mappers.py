@@ -59,7 +59,7 @@ Grand Total: 10101.00"""
 
     assert field_dict["vendor"] == "NIEESH KITCHEN & BAR"
     assert "27ABMCS0263P1ZQ" in field_dict["gstin"]
-    assert field_dict["date"] == "28/02/26  Dine In: 48"
+    assert field_dict["date"] == "28/02/26"
     assert field_dict["bill_no"] == "8266"
     assert field_dict["total"] == "10101.00"
     assert field_dict["subtotal"] == "9620.00"
