@@ -107,12 +107,14 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "maker name",
         # KA old paper booklet format
         "mfr",
+        # OCR typos for "Maker's Name"
+        "makor's namo", "makor's name", "maker's namo",
         # OCR splits "Maker's Name" across lines — match partial
         "maker's namex", "maker' s name",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
-        "model name", "model namo", "vehicle model", "maker model", "model",
+        "model name", "model namo", "model namie", "vehicle model", "maker model", "model",
     ],
     "vehicle_type": [
         "vehicle class", "body type", "type of body", "veh. class",
@@ -196,6 +198,8 @@ _FUEL_TYPES = [
     "PETROLCNG", "PETROLLPG", "DIESELCNG",
     # OCR typos (G→O, G→6, etc.)
     "PETROLCNO", "PETROL/CNO",
+    # OCR 'I' for '/' between PETROL and CNG
+    "PETROLICNG", "PETROLILPG",
     # E20 ethanol blend variants (OCR garbled)
     "PETROL(E20)/CNG", "PETROL(E20)CNG",
 ]
@@ -622,7 +626,9 @@ class RCBookMapper(BaseMapper):
         mappings = {
             "PETROLCNG": "PETROL/CNG",
             "PETROLCNO": "PETROL/CNG",
+            "PETROLICNG": "PETROL/CNG",  # OCR 'I' for '/'
             "PETROLLPG": "PETROL/LPG",
+            "PETROLILPG": "PETROL/LPG",  # OCR 'I' for '/'
             "DIESELCNG": "DIESEL/CNG",
         }
         return mappings.get(text, text)
