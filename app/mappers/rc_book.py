@@ -410,6 +410,9 @@ class RCBookMapper(BaseMapper):
             # Reject implausibly short names (label fragments like "Namr", "Name", etc.)
             if len(v) < 5:
                 return False
+            # Reject if it looks like a date
+            if _DATE_PATTERN.search(v):
+                return False
             # Reject if it looks like an engine/chassis number (mixed letters+digits, no spaces)
             if len(v) >= 10 and ' ' not in v and re.search(r'\d', v) and re.match(r'^[A-Z0-9.]+$', v, re.IGNORECASE):
                 return False
@@ -542,6 +545,7 @@ class RCBookMapper(BaseMapper):
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
             "owncr", "ownername", "ownernamr", "owncrname", "horse power", "bhp",
+            "card ", "card tsw", "sertal",  # OCR garbling of "Card Issue Date" / "Serial"
             "carg", "card issue", "petrol", "diesel", "cng", "lpg", "electric",
             "individual", "asper",
             "'s.name", "'sname", "s.name",
