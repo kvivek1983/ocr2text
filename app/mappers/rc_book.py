@@ -16,7 +16,8 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
     ],
     # Gujarat has engine/chassis on FRONT; other states on BACK — extract from either side
     "engine_number": [
-        "engine/motor no", "engine no", "engine number", "eng no", "eng. no",
+        "engine/motor no", "engine/motor number", "engine no", "engine number",
+        "eng no", "eng. no",
     ],
     "chassis_number": [
         "chassis no", "chassis number", "ch no", "chasi no", "ch. no",
@@ -176,11 +177,19 @@ class RCBookMapper(BaseMapper):
                 fields.append(found)
                 used_labels.add("fuel_type")
 
+        if side == "front" and "registration_date" not in used_labels:
+            # Get existing field values to avoid picking the same date
+            existing_values = {f["value"] for f in fields}
+            found = self._fallback_registration_date(lines, existing_values)
+            if found:
+                fields.append(found)
+                used_labels.add("registration_date")
+
         return fields
 
     # Fields that must match a date pattern
     _DATE_FIELDS: Set[str] = {
-        "registration_date", "registration_validity", "fitness_expiry",
+        "registration_date", "fitness_expiry",
         "tax_expiry", "manufacturing_date", "insurance_validity",
     }
     # Fields that must match a registration number pattern
@@ -199,6 +208,18 @@ class RCBookMapper(BaseMapper):
             stripped = value.strip()
             return bool(re.match(r'^\d{1,3}$', stripped))
         return True
+
+    def _clean_field_value(self, label: str, value: str) -> str:
+        """Extract clean value from merged OCR text (e.g., reg number + date on same line)."""
+        if label in self._REG_NUMBER_FIELDS:
+            match = _REG_NUMBER_PATTERN.search(value)
+            if match:
+                return match.group(1).replace(" ", "")
+        if label in self._DATE_FIELDS:
+            match = _DATE_PATTERN.search(value)
+            if match:
+                return match.group(0)
+        return value
 
     def _try_extract(
         self, alias: str, label: str, lines: List[str], used_labels: set
@@ -234,9 +255,10 @@ class RCBookMapper(BaseMapper):
                 value = match.group(1).strip()
                 value = value.rstrip(":").rstrip("-").strip()
                 # Accept if it's a real value (not a label keyword or descriptor)
-                if value and len(value) > 1 and not self._is_label_or_descriptor(value):
+                if value and len(value) > 1 and not self._is_label_or_descriptor(value, current_label=label):
                     if self._validate_field_value(label, value):
-                        return {"label": label, "value": value}
+                        cleaned = self._clean_field_value(label, value)
+                        return {"label": label, "value": cleaned}
 
             # Same-line failed or was rejected — look ahead up to 3 lines
             for offset in range(1, 4):
@@ -247,18 +269,21 @@ class RCBookMapper(BaseMapper):
                 # Skip empty lines, single-char lines, and label-like text
                 if not next_value or len(next_value) <= 1:
                     continue
-                if self._is_label_or_descriptor(next_value):
+                if self._is_label_or_descriptor(next_value, current_label=label):
                     continue
                 if not self._validate_field_value(label, next_value):
                     continue
-                return {"label": label, "value": next_value}
+                cleaned = self._clean_field_value(label, next_value)
+                return {"label": label, "value": cleaned}
 
         return None
 
-    def _is_label_or_descriptor(self, text: str) -> bool:
+    def _is_label_or_descriptor(self, text: str, current_label: Optional[str] = None) -> bool:
         """Check if text looks like a label or descriptor rather than a value.
 
         Prevents extracting label text as field values when doing next-line lookahead.
+        If current_label is provided, aliases belonging to that field are NOT
+        treated as labels (they could be valid values for that field).
         """
         text_lower = text.lower().strip()
 
@@ -267,6 +292,7 @@ class RCBookMapper(BaseMapper):
             "name", "number", "date", "type", "capacity", "weight",
             "authority", "norms", "upto", "validity", "owner", "fuel",
             "maker", "model", "colour", "color", "address", "form",
+            "serial",
         ]
         if len(text_lower) <= 8 and text_lower in label_keywords:
             return True
@@ -284,15 +310,19 @@ class RCBookMapper(BaseMapper):
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "s/w/d", "s/o", "d/o", "w/o",
+            "card issue", "serial",
         ]
         for indicator in label_indicator_words:
             if text_lower.startswith(indicator):
                 return True
 
         # Check if text matches any known field alias (it's a label, not a value)
+        # Skip aliases belonging to current_label — those could be valid values
         all_alias_sets = [COMMON_FIELD_ALIASES, FRONT_FIELD_ALIASES, BACK_FIELD_ALIASES]
         for alias_dict in all_alias_sets:
-            for aliases in alias_dict.values():
+            for field_label, aliases in alias_dict.items():
+                if field_label == current_label:
+                    continue
                 for alias in aliases:
                     if text_lower == alias.lower():
                         return True
@@ -308,6 +338,25 @@ class RCBookMapper(BaseMapper):
                 # Validate: Indian reg numbers are 8-12 chars
                 if 8 <= len(value) <= 12:
                     return {"label": "registration_number", "value": value}
+        return None
+
+    def _fallback_registration_date(
+        self, lines: List[str], existing_values: Set[str]
+    ) -> Optional[Dict[str, str]]:
+        """Fallback: find registration date by looking for DD-MM-YYYY near date labels."""
+        # Full date pattern: DD-MM-YYYY or DD/MM/YYYY
+        full_date = re.compile(r'(\d{1,2}[-/]\d{1,2}[-/]\d{4})')
+        for line in lines:
+            match = full_date.search(line)
+            if match:
+                date_val = match.group(1)
+                # Skip dates already used by other fields
+                if date_val in existing_values:
+                    continue
+                # Skip if the line looks like "card issue date"
+                if "card issue" in line.lower():
+                    continue
+                return {"label": "registration_date", "value": date_val}
         return None
 
     def _fallback_fuel_type(self, lines: List[str]) -> Optional[Dict[str, str]]:

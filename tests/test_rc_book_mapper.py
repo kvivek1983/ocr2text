@@ -431,3 +431,49 @@ TOUR S CNG"""
         assert "registration_number" in field_dict
         # Should get the actual reg number, not the maker name
         assert "MARUTI" not in field_dict["registration_number"]
+
+    def test_mh_front_merged_reg_date(self):
+        """MH format: reg number and date merged on same line should be split."""
+        text = """Indian Union Vehicle Registration Certificate
+Issued by Government of Maharashtra
+Regn. Validity
+Regn. Number.. ..Date of Regn.
+As per Fitness
+MH04MH1036 ..: 06-11-2024
+Owner
+16:11-2024
+Chassis Number.
+Serial
+MALB341CLRM300255
+Engine/Motor Number
+G4LARM044609.
+Owner Name
+RISHIKA TOURS AND TRAVELS
+Fuel :
+Son/Wife/.Daughter of.(ln case of Individual Owner)
+PETROL/CNG :
+NA
+Address:
+Emission Norms
+GHODBUNDER ROAD BUDHHAVIHAR,THANEWEST,
+BHARATSTAGEVIA
+DONNGARI PADAThane,MH400615"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        # Registration number should be clean (no date appended)
+        assert "registration_number" in field_dict
+        assert field_dict["registration_number"] == "MH04MH1036"
+        # Registration date should be extracted
+        assert "registration_date" in field_dict
+        assert "06-11-2024" in field_dict["registration_date"]
+        # Chassis should skip "Serial" label and get actual value
+        assert "chassis_number" in field_dict
+        assert field_dict["chassis_number"] == "MALB341CLRM300255"
+        # Engine number should be extracted (engine/motor number alias)
+        assert "engine_number" in field_dict
+        assert "G4LARM044609" in field_dict["engine_number"]
+        # Owner name
+        assert "owner_name" in field_dict
+        assert field_dict["owner_name"] == "RISHIKA TOURS AND TRAVELS"
+        # Fuel type
+        assert "fuel_type" in field_dict
