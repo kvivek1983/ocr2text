@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .base import BaseMapper
 
@@ -29,7 +29,7 @@ FUEL_PUMP_READING_FIELD_ALIASES: Dict[str, List[str]] = {
 
 
 class FuelPumpReadingMapper(BaseMapper):
-    def map_fields(self, raw_text: str) -> List[Dict[str, str]]:
+    def map_fields(self, raw_text: str, side: Optional[str] = None) -> List[Dict[str, str]]:
         if not raw_text.strip():
             return []
 

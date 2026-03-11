@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .base import BaseMapper
 
@@ -18,7 +18,7 @@ DRIVING_LICENSE_FIELD_ALIASES: Dict[str, List[str]] = {
 
 
 class DrivingLicenseMapper(BaseMapper):
-    def map_fields(self, raw_text: str) -> List[Dict[str, str]]:
+    def map_fields(self, raw_text: str, side: Optional[str] = None) -> List[Dict[str, str]]:
         if not raw_text.strip():
             return []
 

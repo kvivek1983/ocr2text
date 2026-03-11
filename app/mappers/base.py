@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import Dict, List, Optional
 
 
 class BaseMapper(ABC):
     """Abstract base class for document-type-specific field mappers."""
 
     @abstractmethod
-    def map_fields(self, raw_text: str) -> List[Dict[str, str]]:
+    def map_fields(self, raw_text: str, side: Optional[str] = None) -> List[Dict[str, str]]:
         """Extract type-specific fields from raw OCR text."""
         pass
 
