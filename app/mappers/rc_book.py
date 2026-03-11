@@ -111,6 +111,8 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "makor's namo", "makor's name", "maker's namo",
         # OCR splits "Maker's Name" across lines — match partial
         "maker's namex", "maker' s name",
+        # OCR "Maters Name" / "Mater's Name" (GJ format typo)
+        "maters name", "mater's name",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
@@ -198,8 +200,8 @@ _FUEL_TYPES = [
     "PETROLCNG", "PETROLLPG", "DIESELCNG",
     # OCR typos (G→O, G→6, etc.)
     "PETROLCNO", "PETROL/CNO",
-    # OCR 'I' for '/' between PETROL and CNG
-    "PETROLICNG", "PETROLILPG",
+    # OCR 'I' or 'U' for '/' between PETROL and CNG
+    "PETROLICNG", "PETROUCNG", "PETROLILPG",
     # E20 ethanol blend variants (OCR garbled)
     "PETROL(E20)/CNG", "PETROL(E20)CNG",
 ]
@@ -373,6 +375,9 @@ class RCBookMapper(BaseMapper):
                 return False
             # Reject if it looks like a registration number
             if _REG_NUMBER_PATTERN.search(value):
+                return False
+            # Reject if entirely non-alphanumeric (e.g. "......" from garbled OCR)
+            if not re.search(r'[A-Za-z0-9]', value):
                 return False
         if label == "registration_validity":
             v = value.strip().lower()
@@ -627,6 +632,7 @@ class RCBookMapper(BaseMapper):
             "PETROLCNG": "PETROL/CNG",
             "PETROLCNO": "PETROL/CNG",
             "PETROLICNG": "PETROL/CNG",  # OCR 'I' for '/'
+            "PETROUCNG": "PETROL/CNG",   # OCR 'U' for '/'
             "PETROLLPG": "PETROL/LPG",
             "PETROLILPG": "PETROL/LPG",  # OCR 'I' for '/'
             "DIESELCNG": "DIESEL/CNG",
