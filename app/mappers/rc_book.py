@@ -332,6 +332,9 @@ class RCBookMapper(BaseMapper):
             # Reject label fragments
             if v.startswith("'s") or v.startswith("s.name") or v.startswith("n ") or "financer" in v or "financier" in v:
                 return False
+            # Reject vehicle class/type labels (e.g. "Vehicle Class: Motor Cab (LPV)")
+            if "class" in v or "motor cab" in v or "body type" in v:
+                return False
             # Reject if it looks like a registration number
             if _REG_NUMBER_PATTERN.search(value):
                 return False
@@ -478,7 +481,8 @@ class RCBookMapper(BaseMapper):
             "carg", "card issue", "petrol", "diesel", "cng", "lpg", "electric",
             "individual", "asper",
             "'s.name", "'sname", "s.name",
-            "unladen", "wheel", "month", "standing", "body type", "vehicle",
+            "unladen", "wheel", "month", "standing", "body type",
+            "vehicle", "vehide", "vehcle", "vehile",  # OCR typos for "vehicle"
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
             "registration authority", "registralion authority", "registratlon authority",
