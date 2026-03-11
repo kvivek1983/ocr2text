@@ -50,7 +50,11 @@ tests/          - pytest suite (93+ tests)
 - `5fcaff5` — Design spec: `docs/superpowers/specs/2026-03-11-rc-book-extraction-enhancement-design.md`
 - `35e605e` — Implementation plan: `docs/superpowers/plans/2026-03-11-rc-book-extraction-enhancement.md`
 - `dc6d12b` — Task 1: Add `side: Optional[str] = None` to BaseMapper + all 7 mappers
-- Tasks 2-15 in progress...
+- `0599840` — Task 2: RC book front/back mapper tests (20 tests)
+- `927874b` — Task 3: RC book mapper with front/back side support, auto-detection
+- `2d77997` — Tasks 4+6: Image quality (18 tests) + document authenticity (17 tests) — red phase
+- `0825c7d` — Tasks 5+7: Image quality assessor + document validator implementations — green phase
+- Tasks 8-15 in progress...
 
 **Implementation plan (15 tasks, 6 chunks):**
 1. BaseMapper interface + RC book mapper expansion (front/back/common fields)
@@ -140,5 +144,6 @@ tests/          - pytest suite (93+ tests)
 ## Testing
 
 - **Framework:** pytest + pytest-asyncio + pytest-cov
+- **Current count:** 148 tests passing (as of Tasks 4-7)
 - **Run:** `pytest tests/ -v --tb=short`
 - **Live testing:** `curl -X POST https://ocr2text-production.up.railway.app/extract/rc-book -H "Content-Type: application/json" -d '{"image_url": "<URL>", "side": "front"}'`
