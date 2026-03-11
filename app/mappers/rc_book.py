@@ -17,8 +17,11 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
     "registration_number": [
         "regn no", "regn. number", "registration no", "reg no", "vehicle no",
         "reg. no", "regn. no", "regn number",
+        # mParivahan / digital RC format
+        "vehicle number", "reg no :",
         # OCR typo tolerance
         "regr number", "regr. number", "regr no",
+        "vchiclo number", "vchicle number",
         # Form 23 / OCR typo variants
         "roglstratlon",
     ],
@@ -28,6 +31,8 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
         "eng no", "eng. no",
         # MH format: spaces around slash
         "engine / motor no", "engine / motor number",
+        # mParivahan digital RC / KA format
+        "engine no.", "engine/motor number.",
         # OCR merged/period variants
         "engine/motor.no", "engine/motor.number",
         # OCR merged (no space)
@@ -39,6 +44,8 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
         "chassis no", "chassis number", "ch no", "chasi no", "ch. no",
         # MH format: space before "number"
         "chassis number ",
+        # mParivahan / KA format
+        "chassis no.",
         # OCR merged variant
         "chassisno",
     ],
@@ -49,6 +56,10 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "registered owner", "owner's name", "owner name",
         # OCR typo tolerance
         "owncr name", "owncrname", "ownername",
+        # mParivahan / virtual RC typos
+        "owncr namo", "owncrname",
+        # KA format
+        "ownername",
         # Short alias last (most greedy)
         "owner",
     ],
@@ -57,11 +68,19 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "s/o", "d/o", "w/o", "son of", "daughter of", "wife of",
     ],
     "address": ["address", "permanent address", "present address"],
-    "fuel_type": ["fuel type", "fuel used", "type of fuel", "fuel"],
+    "fuel_type": [
+        "fuel type", "fuel used", "type of fuel",
+        # mParivahan / KA format
+        "fuel",
+    ],
     "registration_date": [
         "date of registration", "date of regn", "regn date", "date of reg", "reg date",
-        # Form 23 / OCR typo
-        "registration dato", "registration date",
+        # mParivahan / digital RC format
+        "registration date",
+        # KA old format
+        "rec.date", "rec. date",
+        # OCR typo (Registratlon with transposed chars)
+        "registration dato", "registratlon date", "registraton date",
     ],
     "registration_validity": [
         "regn validity", "regn. validity", "registration validity",
@@ -84,6 +103,10 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
 BACK_FIELD_ALIASES: Dict[str, List[str]] = {
     "vehicle_make": [
         "maker's name", "vehicle make", "manufacturer", "maker",
+        # mParivahan / digital RC format
+        "maker name",
+        # KA old paper booklet format
+        "mfr",
         # OCR splits "Maker's Name" across lines — match partial
         "maker's namex", "maker' s name",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
@@ -373,6 +396,9 @@ class RCBookMapper(BaseMapper):
             # Reject fitness-related values
             if "fitness" in v.lower() or "fltness" in v.lower():
                 return False
+            # Reject OCR-truncated label fragments (e.g. "gine/Motor Number", "ner Name")
+            if re.search(r'(?i)(motor|engine|number|chassis|regn|reg\.)', v):
+                return False
         return True
 
     def _clean_field_value(self, label: str, value: str) -> str:
@@ -502,8 +528,17 @@ class RCBookMapper(BaseMapper):
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
             "registration authority", "registralion authority", "registratlon authority",
+            "registering authority",
             "dy rto", "rto ", "financer name", "financer ", "number of",
             "cubic cap", "horse power", "bhp", "kw",
+            # mParivahan / digital RC labels
+            "mobile no", "ownership", "vehicle age", "vehicle status",
+            "emission norm", "fitness valid", "tax valid", "insurance valid",
+            "pucc", "permit valid", "seat capacity", "standing capacity",
+            "vehicle description",
+            # KA format labels
+            "sayd of", "body", "no.of cyl", "unladenwt", "mfg.date", "seating",
+            "stdgislfr", "reg/fc upto",
         ]
         for indicator in label_indicator_words:
             if text_lower.startswith(indicator):
