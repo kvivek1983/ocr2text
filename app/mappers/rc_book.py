@@ -277,6 +277,9 @@ class RCBookMapper(BaseMapper):
                 score += 5
             else:
                 score -= 10  # penalize implausibly short make values like "r's Name"
+            # Multi-word makes look more like real company names (e.g. "MARUTI SUZUKI INDIA LTD")
+            if ' ' in vehicle_make:
+                score += 5
 
         return score
 
@@ -555,7 +558,7 @@ class RCBookMapper(BaseMapper):
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
             "registration authority", "registralion authority", "registratlon authority",
-            "registering authority",
+            "registering authority", "registrelton",  # OCR garbling of "Registration"
             "dy rto", "rto ", "financer name", "financer ", "number of",
             "cubic cap", "horse power", "bhp", "kw",
             # mParivahan / digital RC labels
