@@ -1,7 +1,10 @@
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from .base import BaseMapper
+
+# Date pattern: DD-MM-YYYY, DD/MM/YYYY, MM-YYYY, etc.
+_DATE_PATTERN = re.compile(r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}[-/]\d{2,4}')
 
 # Common fields — appear on both sides (varies by state), used as merge key
 COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
@@ -107,8 +110,9 @@ FRONT_MANDATORY = [
 BACK_MANDATORY = ["registration_number", "vehicle_make", "engine_number", "chassis_number"]
 
 # Indian vehicle registration number pattern (e.g., GJ27TG4232, KA01AB1234)
+# Allow alphanumeric in middle segment to handle OCR misreads (e.g., T→1)
 _REG_NUMBER_PATTERN = re.compile(
-    r"\b([A-Z]{2}\s*\d{1,2}\s*[A-Z]{0,3}\s*\d{3,5})\b", re.IGNORECASE
+    r"\b([A-Z]{2}\s*\d{1,2}\s*[A-Z0-9]{0,3}\s*\d{3,5})\b", re.IGNORECASE
 )
 
 # Known fuel types for fallback extraction
@@ -174,6 +178,28 @@ class RCBookMapper(BaseMapper):
 
         return fields
 
+    # Fields that must match a date pattern
+    _DATE_FIELDS: Set[str] = {
+        "registration_date", "registration_validity", "fitness_expiry",
+        "tax_expiry", "manufacturing_date", "insurance_validity",
+    }
+    # Fields that must match a registration number pattern
+    _REG_NUMBER_FIELDS: Set[str] = {"registration_number"}
+    # Fields that must be numeric (small integers)
+    _NUMERIC_FIELDS: Set[str] = {"cylinders", "seating_capacity"}
+
+    def _validate_field_value(self, label: str, value: str) -> bool:
+        """Field-specific validation to prevent wrong value extraction."""
+        if label in self._DATE_FIELDS:
+            return bool(_DATE_PATTERN.search(value))
+        if label in self._REG_NUMBER_FIELDS:
+            return bool(_REG_NUMBER_PATTERN.search(value))
+        if label in self._NUMERIC_FIELDS:
+            # Must contain at least one digit and be predominantly numeric
+            stripped = value.strip()
+            return bool(re.match(r'^\d{1,3}$', stripped))
+        return True
+
     def _try_extract(
         self, alias: str, label: str, lines: List[str], used_labels: set
     ) -> Optional[Dict[str, str]]:
@@ -209,7 +235,8 @@ class RCBookMapper(BaseMapper):
                 value = value.rstrip(":").rstrip("-").strip()
                 # Accept if it's a real value (not a label keyword or descriptor)
                 if value and len(value) > 1 and not self._is_label_or_descriptor(value):
-                    return {"label": label, "value": value}
+                    if self._validate_field_value(label, value):
+                        return {"label": label, "value": value}
 
             # Same-line failed or was rejected — look ahead up to 3 lines
             for offset in range(1, 4):
@@ -221,6 +248,8 @@ class RCBookMapper(BaseMapper):
                 if not next_value or len(next_value) <= 1:
                     continue
                 if self._is_label_or_descriptor(next_value):
+                    continue
+                if not self._validate_field_value(label, next_value):
                     continue
                 return {"label": label, "value": next_value}
 
@@ -252,7 +281,7 @@ class RCBookMapper(BaseMapper):
             "regn", "reg ", "regr", "date of", "valid", "upto", "authority",
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
-            "hypothec", "insurance", "registration", "emission", "cubic",
+            "hypothec", "insurance", "registration", "registralion", "emission", "cubic",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "s/w/d", "s/o", "d/o", "w/o",
         ]

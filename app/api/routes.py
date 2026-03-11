@@ -163,7 +163,7 @@ def compare_rc_book(request: ExtractionRequest):
         raise HTTPException(status_code=500, detail="No engines registered")
 
     comparator = Comparator(engines=engines)
-    result = comparator.compare(image_bytes, document_type="rc_book")
+    result = comparator.compare(image_bytes, document_type="rc_book", side=request.side)
 
     return ComparisonResponse(
         success=True,

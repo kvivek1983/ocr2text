@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 from app.engines.base import BaseOCREngine
 from app.comparison.metrics import calculate_comparison_metrics
 from app.core.field_extractor import FieldExtractor
+from app.mappers import get_mapper
 
 
 class Comparator:
@@ -28,7 +29,7 @@ class Comparator:
 
         self.field_extractor = FieldExtractor()
 
-    def compare(self, image: bytes, document_type: str = None) -> Dict[str, Any]:
+    def compare(self, image: bytes, document_type: str = None, side: str = None) -> Dict[str, Any]:
         """Run all engines on the image and compare results.
 
         Returns:
@@ -38,6 +39,14 @@ class Comparator:
                 "recommendation": str (engine name with highest confidence),
             }
         """
+        # Try to get a type-specific mapper
+        mapper = None
+        if document_type:
+            try:
+                mapper = get_mapper(document_type)
+            except ValueError:
+                pass
+
         engine_results = {}
         engine_fields = {}
 
@@ -54,7 +63,15 @@ class Comparator:
                 confidence = result.get("confidence", 0.0)
                 processing_time_ms = result.get("processing_time_ms", 0)
 
-            fields = self.field_extractor.extract(raw_text)
+            # Use type-specific mapper if available, otherwise generic extractor
+            if mapper:
+                is_rc_book = document_type == "rc_book"
+                if is_rc_book:
+                    fields = mapper.map_fields(raw_text, side=side)
+                else:
+                    fields = mapper.map_fields(raw_text)
+            else:
+                fields = self.field_extractor.extract(raw_text)
 
             engine_results[name] = {
                 "fields": fields,

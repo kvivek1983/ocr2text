@@ -392,3 +392,42 @@ AHMEDABAD EAST"""
         # Model via "model namo" alias
         assert "vehicle_model" in field_dict
         assert "TOUR S CNG" in field_dict["vehicle_model"]
+
+    def test_registration_date_not_reg_number(self):
+        """registration_date should extract a date, not a reg number."""
+        text = """Regn No
+Date of RegnRegnValidity
+Owner
+GJ271G4232
+29-08-2025
+AsperFitness"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        if "registration_date" in field_dict:
+            # Must look like a date, not a reg number
+            assert "29-08-2025" in field_dict["registration_date"]
+
+    def test_cylinders_not_authority(self):
+        """cylinders should not pick up registration authority value."""
+        text = """No.of Cylinders
+Registralion Authorily
+AHMEDABAD EAST"""
+        fields = self.mapper.map_fields(text, side="back")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        # "Registralion Authorily" should be treated as a label, not a value
+        if "cylinders" in field_dict:
+            assert "AHMEDABAD" not in field_dict["cylinders"]
+
+    def test_back_reg_number_not_maker_name(self):
+        """registration_number on back should not pick up maker name."""
+        text = """GJ08147349
+Regr Number
+MARUTI SUZUKI INDIA LTD
+GJ27TG4232
+Model Name:
+TOUR S CNG"""
+        fields = self.mapper.map_fields(text, side="back")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "registration_number" in field_dict
+        # Should get the actual reg number, not the maker name
+        assert "MARUTI" not in field_dict["registration_number"]

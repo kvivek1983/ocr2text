@@ -6,8 +6,9 @@ from typing import Dict, Optional
 
 # Indian vehicle registration format: 2 letters + 2 digits + 1-3 letters + 1-4 digits
 # Examples: KA01AB1234, MH02CD5678, DL3CAF1234
+# Second alternative handles OCR misreads (e.g., T→1) with stricter end-digit requirement
 REGISTRATION_PATTERN = re.compile(
-    r'[A-Z]{2}\s*\d{1,2}\s*[A-Z]{1,3}\s*\d{1,4}',
+    r'[A-Z]{2}\s*\d{1,2}\s*[A-Z]{1,3}\s*\d{1,4}|[A-Z]{2}\s*\d{1,2}\s*[A-Z0-9]{2,3}\s*\d{3,5}',
     re.IGNORECASE
 )
 
@@ -41,9 +42,19 @@ class DocumentValidator:
         # 2. Registration format check
         has_valid_reg_format = bool(REGISTRATION_PATTERN.search(text))
 
-        # 3. Field count check - count lines that look like key:value pairs
+        # 3. Field count check - count lines that look like key:value pairs or known RC labels
+        rc_label_keywords = [
+            "owner", "chassis", "engine", "fuel", "address", "registration",
+            "regn", "regr", "maker", "model", "colour", "color", "seating",
+            "financier", "hypothec", "emission", "bharat stage", "validity",
+        ]
         lines = [l.strip() for l in text.strip().split('\n') if l.strip()]
-        field_lines = [l for l in lines if ':' in l or re.search(r'\w+\s*[-:]\s*\S', l)]
+        field_lines = [
+            l for l in lines
+            if ':' in l
+            or re.search(r'\w+\s*[-:]\s*\S', l)
+            or any(kw in l.lower() for kw in rc_label_keywords)
+        ]
         min_fields = FRONT_MIN_FIELDS if side == "front" else BACK_MIN_FIELDS
         has_sufficient_fields = len(field_lines) >= min_fields
 
