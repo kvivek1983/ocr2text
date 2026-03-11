@@ -384,6 +384,9 @@ class RCBookMapper(BaseMapper):
             # Reject if starts with non-letter/non-digit (e.g. "#gasbabon Aurarty")
             if not re.match(r'^[A-Za-z0-9]', value.strip()):
                 return False
+            # Reject if all digits (not a vehicle make)
+            if re.match(r'^\d+$', value.strip()):
+                return False
         if label == "registration_validity":
             v = value.strip().lower()
             # Accept date values OR "as per fitness" (MH format)
@@ -404,6 +407,9 @@ class RCBookMapper(BaseMapper):
                 return False
         if label == "owner_name":
             v = value.strip()
+            # Reject implausibly short names (label fragments like "Namr", "Name", etc.)
+            if len(v) < 5:
+                return False
             # Reject if it looks like an engine/chassis number (mixed letters+digits, no spaces)
             if len(v) >= 10 and ' ' not in v and re.search(r'\d', v) and re.match(r'^[A-Z0-9.]+$', v, re.IGNORECASE):
                 return False
