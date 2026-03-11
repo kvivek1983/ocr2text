@@ -297,9 +297,25 @@ class RCBookMapper(BaseMapper):
                 return False
             return True
         if label == "vehicle_make":
-            # Reject label fragments like "'s.Name", "'sName", "n Number", "Financer Name"
             v = value.strip().lower()
+            # Reject label fragments
             if v.startswith("'s") or v.startswith("s.name") or v.startswith("n ") or "financer" in v or "financier" in v:
+                return False
+            # Reject if it looks like a registration number
+            if _REG_NUMBER_PATTERN.search(value):
+                return False
+        if label == "fuel_type":
+            v = value.strip().upper()
+            # Must contain a known fuel keyword
+            if not any(kw in v for kw in ["PETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID"]):
+                return False
+        if label == "owner_name":
+            v = value.strip()
+            # Reject if it looks like an engine/chassis number (mixed letters+digits, no spaces)
+            if len(v) >= 10 and ' ' not in v and re.search(r'\d', v) and re.match(r'^[A-Z0-9.]+$', v, re.IGNORECASE):
+                return False
+            # Reject fitness-related values
+            if "fitness" in v.lower() or "fltness" in v.lower():
                 return False
         return True
 
@@ -392,7 +408,7 @@ class RCBookMapper(BaseMapper):
             "name", "number", "date", "type", "capacity", "weight",
             "authority", "norms", "upto", "validity", "owner", "fuel",
             "maker", "model", "colour", "color", "address", "form",
-            "serial",
+            "serial", "na", "nil",
         ]
         if len(text_lower) <= 8 and text_lower in label_keywords:
             return True
