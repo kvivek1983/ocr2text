@@ -227,13 +227,17 @@ class RCBookMapper(BaseMapper):
         return None
 
     def _is_label_or_descriptor(self, text: str) -> bool:
-        """Check if text looks like a label or descriptor rather than a value."""
+        """Check if text looks like a label or descriptor rather than a value.
+
+        Prevents extracting label text as field values when doing next-line lookahead.
+        """
         text_lower = text.lower().strip()
 
-        # Short label keywords
+        # Short label keywords (exact match for short strings)
         label_keywords = [
             "name", "number", "date", "type", "capacity", "weight",
-            "authority", "norms", "upto", "validity",
+            "authority", "norms", "upto", "validity", "owner", "fuel",
+            "maker", "model", "colour", "color", "address", "form",
         ]
         if len(text_lower) <= 8 and text_lower in label_keywords:
             return True
@@ -242,14 +246,27 @@ class RCBookMapper(BaseMapper):
         if text_lower.startswith("(") and text_lower.endswith(")"):
             return True
 
-        # Looks like another field label: mostly lowercase with label-like words
+        # Known field label prefixes — if the line starts with any of these,
+        # it's likely a label, not a value
         label_indicator_words = [
-            "regn", "reg ", "date of", "valid", "upto", "authority",
-            "in case of", "norms", "fitness",
+            "regn", "reg ", "regr", "date of", "valid", "upto", "authority",
+            "in case of", "norms", "fitness", "owner", "fuel", "address",
+            "maker", "model", "chassis", "engine", "seating", "financier",
+            "hypothec", "insurance", "registration", "emission", "cubic",
+            "unladen", "wheel", "month", "standing", "body type", "vehicle",
+            "son/wife", "s/w/d", "s/o", "d/o", "w/o",
         ]
         for indicator in label_indicator_words:
             if text_lower.startswith(indicator):
                 return True
+
+        # Check if text matches any known field alias (it's a label, not a value)
+        all_alias_sets = [COMMON_FIELD_ALIASES, FRONT_FIELD_ALIASES, BACK_FIELD_ALIASES]
+        for alias_dict in all_alias_sets:
+            for aliases in alias_dict.values():
+                for alias in aliases:
+                    if text_lower == alias.lower():
+                        return True
 
         return False
 
