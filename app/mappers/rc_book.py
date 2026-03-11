@@ -74,6 +74,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "ownername",
         # UP format ("OwName" merged OCR)
         "owname",
+        # GJ/TN format OCR typos ("Owier", "Owncr")
+        "owier name", "owier",
         # Short alias last (most greedy)
         "owner",
     ],
@@ -415,6 +417,10 @@ class RCBookMapper(BaseMapper):
             # Reject if all digits (not a vehicle make)
             if re.match(r'^\d+$', value.strip()):
                 return False
+            # Reject if first 3 chars contain a digit (e.g. "G01MT0071" = garbled reg number)
+            prefix = value.strip()[:3]
+            if len(prefix) >= 2 and re.search(r'\d', prefix):
+                return False
         if label == "registration_validity":
             v = value.strip().lower()
             # Accept date values OR "as per fitness" (MH format)
@@ -575,7 +581,7 @@ class RCBookMapper(BaseMapper):
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
-            "owncr", "ownername", "ownernamr", "owncrname", "ownrf", "owname", "horse power", "bhp",
+            "owncr", "ownername", "ownernamr", "owncrname", "ownrf", "owname", "owier", "horse power", "bhp",
             "card ", "card tsw", "sertal",  # OCR garbling of "Card Issue Date" / "Serial"
             "wheet",  # OCR typo for "wheel" (e.g. "Wheet Base(mm)")
             "hsrp", "front.hsrp", "rear.hsrp",  # High Security Registration Plate labels
