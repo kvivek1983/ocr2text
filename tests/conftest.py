@@ -88,12 +88,8 @@ Registration No: KA01AB1234
 Owner: RAJESH KUMAR
 S/O: SURESH KUMAR
 Address: 123, MG Road, Bangalore - 560001
-Maker's Name: MARUTI SUZUKI
-Model: SWIFT DZIRE
 Fuel Type: Petrol
-Body Type: Sedan
-Colour: White
-Seating Capacity: 5
+Emission Norms: BS VI
 Date of Registration: 15/03/2020
 Fitness Upto: 14/03/2035
 Tax Upto: 14/03/2025
@@ -104,14 +100,18 @@ Registering Authority: KA01 - Bangalore"""
 def sample_raw_text_rc_back():
     return """REGISTRATION CERTIFICATE
 Registration No: KA01AB1234
+Maker's Name: MARUTI SUZUKI INDIA LTD
+Model Name: SWIFT DZIRE
 Engine No: K12M1234567
 Chassis No: MA3FJEB1S00123456
+Colour: White
+Body Type: Sedan
+Seating Capacity: 5
 Mfg Date: 02/2020
 Unladen Weight: 875 KG
 Cubic Capacity: 1197 CC
 Wheelbase: 2430 MM
 No of Cyl: 4
-Emission Norms: BS VI
 Hypothecation: HDFC BANK
 Insurance Upto: 14/03/2025
 Standing Capacity: 0"""

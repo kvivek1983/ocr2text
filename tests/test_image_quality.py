@@ -94,6 +94,7 @@ class TestLayerBCompleteness:
         """Back side uses back mandatory list"""
         fields = [
             {"label": "registration_number", "value": "KA01AB1234"},
+            {"label": "vehicle_make", "value": "MARUTI SUZUKI"},
             {"label": "engine_number", "value": "K12M1234567"},
             {"label": "chassis_number", "value": "MA3FJEB1S00123456"},
         ]
