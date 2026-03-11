@@ -113,6 +113,8 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "maker's namex", "maker' s name",
         # OCR "Maters Name" / "Mater's Name" (GJ format typo)
         "maters name", "mater's name",
+        # OCR drops the 'r' from "Maker's" → "Make's Name"
+        "make's name",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
@@ -531,7 +533,7 @@ class RCBookMapper(BaseMapper):
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
-            "owncr", "ownername", "owncrname", "horse power", "bhp",
+            "owncr", "ownername", "ownernamr", "owncrname", "horse power", "bhp",
             "carg", "card issue", "petrol", "diesel", "cng", "lpg", "electric",
             "individual", "asper",
             "'s.name", "'sname", "s.name",
