@@ -46,21 +46,61 @@ tests/          - pytest suite (191+ tests)
 5. N-engine comparison (`/compare/rc-book` endpoint)
 6. OCR noise tolerance (typo-tolerant aliases, regex fallbacks, multi-line extraction)
 
-**Current state (2026-03-11):**
-- All 15 implementation tasks complete
-- Live-tested with real Gujarat RC smart card images
-- Two rounds of mapper hardening based on real PaddleOCR output
-- 191 tests passing
-- Deployed to production
+**Current state (2026-03-12):**
+- Phase 3 complete: 19-RC batch hardening across multiple states/formats
+- 199 tests passing
+- Deployed to production (6 commits pushed)
+
+**Formats tested (Phase 3):**
+- MH (Maharashtra) physical RC smart card — front/back ✓ robust
+- GJ (Gujarat) RC smart card — partially working (garbled OCR in some images)
+- KA (Karnataka) old paper booklet — back fields extracted; front too garbled
+- PB (Punjab) mParivahan virtual RC — 4/4 front ✓
+- MP (Madhya Pradesh) RC — partial (reg number only on back)
+- mParivahan digital RC (MH) — partial (fuel/date not on front side)
+
+**Score on 19-RC batch (RC_Training_Data_20to40.csv):**
+- 6/19 RCs: both front+back fully passing
+- 5/19 RCs: data issues (swapped sides, wrong document, inaccessible image)
+- 3/19 RCs: OCR quality too poor (UP/KA paper, GJ garbled)
+- 5/19 RCs: partial extraction (format limitations, OCR truncation)
 
 **Known limitations:**
-- PaddleOCR merges words without spaces (e.g., "SUNILBHAIKARSANBHAICHUNARA") — OCR engine limitation
-- OCR sometimes merges adjacent label columns into one line — causes some field extraction failures
-- Tested with GJ (Gujarat) and KA (Karnataka) formats; other states need testing (MH, TN, DL, AP, etc.)
+- PaddleOCR merges words without spaces — OCR engine limitation
+- OCR sometimes merges adjacent label columns — causes extraction failures
+- mParivahan digital RC: fuel_type/registration_date only on "back" URL, not front
+- MH back: engine/chassis not in back OCR (they're on front) — BACK_MANDATORY reduced to 2
+- Garbled UP/KA paper RCs: OCR output too noisy to extract reliably
+- `vehicle_make` missing when "Maker's Name" label absent from OCR output (garbled images)
 
 ---
 
 ## Changelog
+
+### 2026-03-12 — RC SmartExtract: 19-RC Batch Hardening (Phase 3)
+
+**What happened:** Iterated through 19 new RC images (RC_Training_Data_20to40.csv) in 4 batches of 5. Each batch: hit production API → analyze raw OCR → fix mapper → push → redeploy → verify.
+
+**6 commits of mapper fixes:**
+- `80c943a` — Batch 1: MH format engine/chassis aliases (`engine / motor number`), Indian state code validation for reg numbers, `_NUMERIC_DECIMAL_FIELDS` validator, emission_norms validator, registration_validity accepts "As per Fitness", lookahead 3→5 lines, chassis ~ stripping
+- `55bfd94` — Round 2: BACK_MANDATORY reduced to `[registration_number, vehicle_make]` (engine/chassis are on FRONT for MH/GJ), fallback reg number state code check, OCR typo "Registratln" label indicators
+- `7b9fdb5` — Fix vehicle_make getting "Vehide Class" (OCR typo for Vehicle) in reversed-line mode
+- `b5b78b6` — Fix vehicle_make greedy "make" alias causing "r's Name"; scoring penalizes short vehicle_make
+- `fc5a907` — registration_validity: "As per Fitness" standalone line returns itself as value (MH format)
+- `b3cd6c3` — Batch 3: mParivahan digital RC + KA old paper format aliases; DD-Mon-YYYY date format; owner_name label guards
+
+**New format support added:**
+- MH (Maharashtra) physical RC — `Engine / Motor Number` (spaces around `/`)
+- mParivahan digital RC — `Vehicle Number`, `Maker Name`, `Engine No.`, `Registration Date`
+- KA old paper booklet — `MFR`, `Rec.Date`, `Fuel`
+- Punjab virtual RC — `Registratlon Date`, `15-Jan-2026` date format
+- MP (Madhya Pradesh) — `PETROLICNG` normalization, `Makor's Namo` typo
+
+**Data quality observations from batch:**
+- 3/19 RCs had CSV front/back URLs swapped (RC6, RC8, RC15)
+- 1/19 was a tax receipt, not RC book (RC17)
+- 2/19 had inaccessible/empty images (RC2, RC7)
+- 3/19 had severely garbled OCR (RC1 UP paper, RC14 KA paper, RC19 GJ garbled)
 
 ### 2026-03-11 — RC SmartExtract: Live Hardening (Phase 2)
 
