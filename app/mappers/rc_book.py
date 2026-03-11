@@ -12,11 +12,11 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
 }
 
 FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
-    "owner_name": ["owner", "name", "registered owner", "owner's name"],
+    "owner_name": ["registered owner", "owner's name", "owner name", "owner"],
     "father_name": ["s/o", "d/o", "w/o", "s/w/d of", "son of", "daughter of", "wife of"],
     "address": ["address", "permanent address", "present address"],
     "vehicle_make": [
-        "maker", "maker's name", "manufacturer", "make", "vehicle make",
+        "maker's name", "vehicle make", "manufacturer", "maker", "make",
     ],
     "vehicle_model": ["model", "vehicle model", "maker model"],
     "fuel_type": ["fuel type", "fuel used", "type of fuel", "fuel"],
