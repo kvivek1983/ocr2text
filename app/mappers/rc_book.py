@@ -65,6 +65,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
     ],
     "registration_validity": [
         "regn validity", "regn. validity", "registration validity",
+        # OCR typo: double-l "Valldity"
+        "regn. valldity", "regn valldity",
         # MH format: validity is "As per Fitness" (no fixed date)
         "as per fitness", "as par fitness",
     ],
@@ -141,7 +143,9 @@ BACK_INDICATORS = [
 FRONT_MANDATORY = [
     "registration_number", "owner_name", "fuel_type", "registration_date",
 ]
-BACK_MANDATORY = ["registration_number", "vehicle_make", "engine_number", "chassis_number"]
+# Engine/chassis are COMMON fields (front for MH/GJ, back for some other states)
+# Back mandatory: only fields reliably present on back across all state formats
+BACK_MANDATORY = ["registration_number", "vehicle_make"]
 
 # Valid Indian state/UT registration code prefixes
 _VALID_STATE_CODES = {
@@ -476,8 +480,10 @@ class RCBookMapper(BaseMapper):
             "'s.name", "'sname", "s.name",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
-            "card issue", "serial", "registration authority", "registralion authority",
+            "card issue", "serial",
+            "registration authority", "registralion authority", "registratlon authority",
             "dy rto", "rto ", "financer name", "financer ", "number of",
+            "cubic cap", "horse power", "bhp", "kw",
         ]
         for indicator in label_indicator_words:
             if text_lower.startswith(indicator):
@@ -502,8 +508,8 @@ class RCBookMapper(BaseMapper):
             match = _REG_NUMBER_PATTERN.search(line)
             if match:
                 value = (match.group(1) or match.group(2)).replace(" ", "")
-                # Validate: Indian reg numbers are 8-12 chars
-                if 8 <= len(value) <= 12:
+                # Validate: Indian reg numbers are 8-12 chars with valid state code
+                if 8 <= len(value) <= 12 and value[:2].upper() in _VALID_STATE_CODES:
                     return {"label": "registration_number", "value": value}
         return None
 
