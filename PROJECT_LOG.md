@@ -54,7 +54,12 @@ tests/          - pytest suite (93+ tests)
 - `927874b` — Task 3: RC book mapper with front/back side support, auto-detection
 - `2d77997` — Tasks 4+6: Image quality (18 tests) + document authenticity (17 tests) — red phase
 - `0825c7d` — Tasks 5+7: Image quality assessor + document validator implementations — green phase
-- Tasks 8-15 in progress...
+- `c2170fb` — Tasks 8+11: Integration tests (5) + N-engine comparison tests (11) — red phase
+- `8619310` — Tasks 9+10: API schemas (ImageQuality, DocumentAuthenticity, side) + pipeline integration
+- `0f3dba6` — Task 12: N-engine comparator with backward compat
+- `5bc1d3a` — Task 13: `/compare/rc-book` endpoint
+- `a27e8ab` — Fix: RC book field alias ordering (discovered during integration testing)
+- **182 tests passing** — All tasks 1-14 complete
 
 **Implementation plan (15 tasks, 6 chunks):**
 1. BaseMapper interface + RC book mapper expansion (front/back/common fields)
@@ -144,6 +149,6 @@ tests/          - pytest suite (93+ tests)
 ## Testing
 
 - **Framework:** pytest + pytest-asyncio + pytest-cov
-- **Current count:** 148 tests passing (as of Tasks 4-7)
+- **Current count:** 182 tests passing (all tasks complete)
 - **Run:** `pytest tests/ -v --tb=short`
 - **Live testing:** `curl -X POST https://ocr2text-production.up.railway.app/extract/rc-book -H "Content-Type: application/json" -d '{"image_url": "<URL>", "side": "front"}'`
