@@ -68,6 +68,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "owncr namo", "owncrname",
         # UP paper RC format typos ("C" for "O")
         "cwnor nama", "cwnor name",
+        # TN format typos ("Q" for "O")
+        "qwner name", "qwnername",
         # KA format
         "ownername",
         # Short alias last (most greedy)
@@ -93,6 +95,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "registration dato", "registratlon date", "registraton date",
         # Heavily garbled OCR labels (UP paper format)
         "dafo of rogh", "dafo of regn",
+        # TN format: merged label with no spaces
+        "dateofregn",
     ],
     "registration_validity": [
         "regn validity", "regn. validity", "registration validity",
@@ -216,6 +220,8 @@ _FUEL_TYPES = [
     "PETROLCNO", "PETROL/CNO",
     # OCR 'I' or 'U' for '/' between PETROL and CNG
     "PETROLICNG", "PETROUCNG", "PETROLILPG",
+    # OCR 'Q' for 'O' in PETROL
+    "PETRQL",
     # E20 ethanol blend variants (OCR garbled)
     "PETROL(E20)/CNG", "PETROL(E20)CNG",
 ]
@@ -496,8 +502,8 @@ class RCBookMapper(BaseMapper):
             # Try same-line extraction first
             if match:
                 value = match.group(1).strip()
-                # Strip leading/trailing colons and dashes (OCR artifacts)
-                value = re.sub(r'^[:\-.\s]+', '', value).rstrip(":.-").strip()
+                # Strip leading/trailing colons, dashes, semicolons (OCR artifacts)
+                value = re.sub(r'^[:\-.\s;]+', '', value).rstrip(":.-;").strip()
                 # Accept if it's a real value (not a label keyword or descriptor)
                 if value and len(value) > 1 and not self._is_label_or_descriptor(value, current_label=label):
                     if self._validate_field_value(label, value):
@@ -516,7 +522,7 @@ class RCBookMapper(BaseMapper):
                 if i + offset >= len(lines):
                     break
                 next_value = lines[i + offset].strip()
-                next_value = re.sub(r'^[:\-.\s]+', '', next_value).rstrip(":.-").strip()
+                next_value = re.sub(r'^[:\-.\s;]+', '', next_value).rstrip(":.-;").strip()
                 # Skip empty lines, single-char lines, and label-like text
                 if not next_value or len(next_value) <= 1:
                     continue
@@ -673,6 +679,7 @@ class RCBookMapper(BaseMapper):
             "PETROLCNO": "PETROL/CNG",
             "PETROLICNG": "PETROL/CNG",  # OCR 'I' for '/'
             "PETROUCNG": "PETROL/CNG",   # OCR 'U' for '/'
+            "PETRQL": "PETROL",          # OCR 'Q' for 'O'
             "PETROLLPG": "PETROL/LPG",
             "PETROLILPG": "PETROL/LPG",  # OCR 'I' for '/'
             "DIESELCNG": "DIESEL/CNG",
