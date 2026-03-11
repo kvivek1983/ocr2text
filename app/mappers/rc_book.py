@@ -66,6 +66,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "owncr name", "owncrname", "ownername",
         # mParivahan / virtual RC typos
         "owncr namo", "owncrname",
+        # UP paper RC format typos ("C" for "O")
+        "cwnor nama", "cwnor name",
         # KA format
         "ownername",
         # Short alias last (most greedy)
