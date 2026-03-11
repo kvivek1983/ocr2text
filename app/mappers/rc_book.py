@@ -6,9 +6,9 @@ from .base import BaseMapper
 # Date pattern: DD-MM-YYYY, DD/MM/YYYY, MM-YYYY, etc.
 _MONTH_NAMES = r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
 _DATE_PATTERN = re.compile(
-    r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}'          # DD-MM-YYYY, DD/MM/YYYY
-    r'|\d{1,2}[-/]\d{2,4}'                     # MM-YYYY
-    rf'|\d{{1,2}}{_MONTH_NAMES}[-/]?\d{{4}}',  # 24Sep-2025, 24Sep2025
+    r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}'                  # DD-MM-YYYY, DD/MM/YYYY
+    r'|\d{1,2}[-/]\d{2,4}'                             # MM-YYYY
+    rf'|\d{{1,2}}[-/]?{_MONTH_NAMES}[-/]?\d{{4}}',    # 24Sep-2025, 24Sep2025, 15-Jan-2026
     re.IGNORECASE,
 )
 
@@ -499,7 +499,7 @@ class RCBookMapper(BaseMapper):
             "name", "number", "date", "type", "capacity", "weight",
             "authority", "norms", "upto", "validity", "owner", "fuel",
             "maker", "model", "colour", "color", "address", "form",
-            "serial", "na", "nil",
+            "serial", "na", "nil", "details", "active", "status",
         ]
         if len(text_lower) <= 8 and text_lower in label_keywords:
             return True
