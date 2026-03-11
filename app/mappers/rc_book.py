@@ -17,6 +17,8 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
         "reg. no", "regn. no", "regn number",
         # OCR typo tolerance
         "regr number", "regr. number", "regr no",
+        # Form 23 / OCR typo variants
+        "roglstratlon",
     ],
     # Gujarat has engine/chassis on FRONT; other states on BACK — extract from either side
     "engine_number": [
@@ -26,6 +28,8 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
         "engine/motor.no", "engine/motor.number",
         # OCR merged (no space)
         "engine/motorno",
+        # Form 23 variants
+        "engineno", "engineno.",
     ],
     "chassis_number": [
         "chassis no", "chassis number", "ch no", "chasi no", "ch. no",
@@ -50,6 +54,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
     "fuel_type": ["fuel type", "fuel used", "type of fuel", "fuel"],
     "registration_date": [
         "date of registration", "date of regn", "regn date", "date of reg", "reg date",
+        # Form 23 / OCR typo
+        "registration dato", "registration date",
     ],
     "registration_validity": [
         "regn validity", "regn. validity", "registration validity",
@@ -380,7 +386,7 @@ class RCBookMapper(BaseMapper):
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
-            "owncr", "ownername", "owncrname",
+            "owncr", "ownername", "owncrname", "horse power", "bhp",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
