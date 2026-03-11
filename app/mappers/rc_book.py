@@ -66,8 +66,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "owncr name", "owncrname", "ownername",
         # mParivahan / virtual RC typos
         "owncr namo", "owncrname",
-        # UP paper RC format typos ("C" for "O")
-        "cwnor nama", "cwnor name",
+        # UP paper RC format typos ("C" for "O", "f" for "e")
+        "cwnor nama", "cwnor name", "ownrf name", "ownrf nama",
         # TN format typos ("Q" for "O")
         "qwner name", "qwnername",
         # KA format
@@ -571,7 +571,7 @@ class RCBookMapper(BaseMapper):
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
-            "owncr", "ownername", "ownernamr", "owncrname", "horse power", "bhp",
+            "owncr", "ownername", "ownernamr", "owncrname", "ownrf", "horse power", "bhp",
             "card ", "card tsw", "sertal",  # OCR garbling of "Card Issue Date" / "Serial"
             "wheet",  # OCR typo for "wheel" (e.g. "Wheet Base(mm)")
             "hsrp", "front.hsrp", "rear.hsrp",  # High Security Registration Plate labels
@@ -594,6 +594,8 @@ class RCBookMapper(BaseMapper):
             # KA format labels
             "sayd of", "body", "no.of cyl", "unladenwt", "mfg.date", "seating",
             "stdgislfr", "reg/fc upto",
+            # Weight/dimension labels
+            "gross", "laden", "unladen weight", "gross vehicle", "gross comb",
         ]
         for indicator in label_indicator_words:
             if text_lower.startswith(indicator):
