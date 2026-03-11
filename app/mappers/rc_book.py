@@ -277,6 +277,8 @@ class RCBookMapper(BaseMapper):
             match = _DATE_PATTERN.search(value)
             if match:
                 return match.group(0)
+        if label == "fuel_type":
+            return self._normalize_fuel(value.strip())
         return value
 
     def _try_extract(
@@ -402,8 +404,8 @@ class RCBookMapper(BaseMapper):
         self, lines: List[str], existing_values: Set[str]
     ) -> Optional[Dict[str, str]]:
         """Fallback: find registration date by looking for DD-MM-YYYY near date labels."""
-        # Full date pattern: DD-MM-YYYY or DD/MM/YYYY
-        full_date = re.compile(r'(\d{1,2}[-/]\d{1,2}[-/]\d{4})')
+        # Full date pattern: DD-MM-YYYY, DD/MM/YYYY, or DDMmm-YYYY (e.g. 24Sep-2025)
+        full_date = re.compile(r'(\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{1,2}[A-Za-z]{3,9}[-/]?\d{4})')
         for line in lines:
             match = full_date.search(line)
             if match:

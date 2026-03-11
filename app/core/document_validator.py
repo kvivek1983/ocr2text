@@ -15,11 +15,14 @@ REGISTRATION_PATTERN = re.compile(
 # RC header markers — includes OCR-tolerant fragments
 RC_HEADER_MARKERS = [
     "registration certificate",
+    "registratlon certificate",
+    "registratlon certiflcate",
     "form 23",
     "form no. 23",
     "certificate of registration",
     # OCR-tolerant: broader matches for garbled/variant headers
     "indian union",
+    "indian unlon",
     "vehicle department",
     "motor vehicle",
     "government of",
