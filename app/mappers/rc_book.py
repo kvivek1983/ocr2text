@@ -436,8 +436,8 @@ class RCBookMapper(BaseMapper):
         if label == "fuel_type":
             return self._normalize_fuel(value.strip())
         if label == "owner_name":
-            # Strip trailing "Son/Wife/Daughter of" merged text
-            cleaned = re.split(r'(?i)\s+son.{0,6}w[il]|\s+[Ss]\s*/\s*[Ww]\s*/\s*[Dd]', value)[0].strip()
+            # Strip trailing "Son/Wife/Daughter of" merged text (with or without preceding space)
+            cleaned = re.split(r'(?i)\s*son.{0,6}w[il]|\s*[Ss]\s*/\s*[Ww]\s*/\s*[Dd]', value)[0].strip()
             return cleaned if cleaned else value
         return value
 
@@ -529,7 +529,9 @@ class RCBookMapper(BaseMapper):
         if stripped.startswith("(") and stripped.endswith(")"):
             return True
         # "In case of" descriptor without parentheses
-        if "in case of" in text_lower or "in cse of" in text_lower:
+        # Exception: owner_name values may contain "son/wife/daughter of (in case of individual owner)"
+        # which is cleaned away by _clean_field_value — don't reject those here
+        if current_label != "owner_name" and ("in case of" in text_lower or "in cse of" in text_lower):
             return True
 
         # Known field label prefixes — if the line starts with any of these,
