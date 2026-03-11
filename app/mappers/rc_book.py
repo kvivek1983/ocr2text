@@ -4,11 +4,19 @@ from typing import Dict, List, Optional, Set
 from .base import BaseMapper
 
 # Date pattern: DD-MM-YYYY, DD/MM/YYYY, MM-YYYY, etc.
-_MONTH_NAMES = r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
+# OCR typos for month names: Scp→Sep
+_MONTH_NAMES = r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Scp|Oct|Nov|Dec)'
 _DATE_PATTERN = re.compile(
     r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}'                  # DD-MM-YYYY, DD/MM/YYYY
     r'|\d{1,2}[-/]\d{2,4}'                             # MM-YYYY
     rf'|\d{{1,2}}[-/]?{_MONTH_NAMES}[-/]?\d{{4}}',    # 24Sep-2025, 24Sep2025, 15-Jan-2026
+    re.IGNORECASE,
+)
+# Strict date pattern for validation — requires 4-digit year to avoid garbled partial dates
+_STRICT_DATE_PATTERN = re.compile(
+    r'\d{1,2}[-/]\d{1,2}[-/]\d{4}'                    # DD-MM-YYYY
+    r'|\d{1,2}[-/]\d{4}'                               # MM-YYYY (4-digit year only)
+    rf'|\d{{1,2}}[-/]?{_MONTH_NAMES}[-/]?\d{{4}}',    # DD-Mon-YYYY
     re.IGNORECASE,
 )
 
@@ -81,6 +89,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "rec.date", "rec. date",
         # OCR typo (Registratlon with transposed chars)
         "registration dato", "registratlon date", "registraton date",
+        # Heavily garbled OCR labels (UP paper format)
+        "dafo of rogh", "dafo of regn",
     ],
     "registration_validity": [
         "regn validity", "regn. validity", "registration validity",
@@ -345,7 +355,7 @@ class RCBookMapper(BaseMapper):
     def _validate_field_value(self, label: str, value: str) -> bool:
         """Field-specific validation to prevent wrong value extraction."""
         if label in self._DATE_FIELDS:
-            return bool(_DATE_PATTERN.search(value))
+            return bool(_STRICT_DATE_PATTERN.search(value))
         if label in self._REG_NUMBER_FIELDS:
             match = _REG_NUMBER_PATTERN.search(value)
             if not match:
@@ -363,8 +373,8 @@ class RCBookMapper(BaseMapper):
             return bool(re.match(r'^\d', stripped))
         if label in self._VIN_FIELDS:
             stripped = re.sub(r'[\s.\-~]', '', value)
-            # VIN/chassis: 15-20 alphanumeric chars, not a date or reg number
-            if not (13 <= len(stripped) <= 22 and re.match(r'^[A-Z0-9]+$', stripped, re.IGNORECASE)):
+            # VIN/chassis: 15-22 alphanumeric chars, not a date or reg number
+            if not (15 <= len(stripped) <= 22 and re.match(r'^[A-Z0-9]+$', stripped, re.IGNORECASE)):
                 return False
             # Reject if it looks like a date
             if _DATE_PATTERN.search(value):
@@ -386,6 +396,9 @@ class RCBookMapper(BaseMapper):
                 return False
             # Reject if starts with non-letter/non-digit (e.g. "#gasbabon Aurarty")
             if not re.match(r'^[A-Za-z0-9]', value.strip()):
+                return False
+            # Reject if starts with a digit (vehicle makes start with letters)
+            if re.match(r'^\d', value.strip()):
                 return False
             # Reject if all digits (not a vehicle make)
             if re.match(r'^\d+$', value.strip()):
@@ -410,8 +423,8 @@ class RCBookMapper(BaseMapper):
                 return False
         if label == "owner_name":
             v = value.strip()
-            # Reject implausibly short names (label fragments like "Namr", "Name", etc.)
-            if len(v) < 5:
+            # Reject implausibly short names (label fragments like "Namr", "Name", "ship.", etc.)
+            if len(v) < 6:
                 return False
             # Reject if it looks like a date
             if _DATE_PATTERN.search(v):
@@ -479,7 +492,8 @@ class RCBookMapper(BaseMapper):
             # Try same-line extraction first
             if match:
                 value = match.group(1).strip()
-                value = value.rstrip(":").rstrip("-").strip()
+                # Strip leading/trailing colons and dashes (OCR artifacts)
+                value = re.sub(r'^[:\-.\s]+', '', value).rstrip(":.-").strip()
                 # Accept if it's a real value (not a label keyword or descriptor)
                 if value and len(value) > 1 and not self._is_label_or_descriptor(value, current_label=label):
                     if self._validate_field_value(label, value):
@@ -498,7 +512,7 @@ class RCBookMapper(BaseMapper):
                 if i + offset >= len(lines):
                     break
                 next_value = lines[i + offset].strip()
-                next_value = next_value.rstrip(":").rstrip("-").strip()
+                next_value = re.sub(r'^[:\-.\s]+', '', next_value).rstrip(":.-").strip()
                 # Skip empty lines, single-char lines, and label-like text
                 if not next_value or len(next_value) <= 1:
                     continue
@@ -550,6 +564,7 @@ class RCBookMapper(BaseMapper):
             "owncr", "ownername", "ownernamr", "owncrname", "horse power", "bhp",
             "card ", "card tsw", "sertal",  # OCR garbling of "Card Issue Date" / "Serial"
             "wheet",  # OCR typo for "wheel" (e.g. "Wheet Base(mm)")
+            "hsrp", "front.hsrp", "rear.hsrp",  # High Security Registration Plate labels
             "carg", "card issue", "petrol", "diesel", "cng", "lpg", "electric",
             "individual", "asper",
             "'s.name", "'sname", "s.name",
