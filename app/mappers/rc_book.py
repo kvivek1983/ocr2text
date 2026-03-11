@@ -357,7 +357,7 @@ class RCBookMapper(BaseMapper):
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
-            "son/wife", "s/w/d", "s/o", "d/o", "w/o",
+            "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
         ]
         for indicator in label_indicator_words:

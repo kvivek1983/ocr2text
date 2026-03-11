@@ -12,12 +12,17 @@ REGISTRATION_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# RC header markers
+# RC header markers — includes OCR-tolerant fragments
 RC_HEADER_MARKERS = [
     "registration certificate",
     "form 23",
     "form no. 23",
     "certificate of registration",
+    # OCR-tolerant: broader matches for garbled/variant headers
+    "indian union",
+    "vehicle department",
+    "motor vehicle",
+    "government of",
 ]
 
 # Minimum field-like lines (lines with colon or key-value pattern)
