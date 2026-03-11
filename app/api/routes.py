@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.api.schemas import (
+    ComparisonResponse,
     ExtractionRequest,
     ExtractionResponse,
     FieldResult,
@@ -9,6 +10,7 @@ from app.api.schemas import (
     DocumentAuthenticity,
 )
 from app.config import settings
+from app.comparison.comparator import Comparator
 from app.core.extraction_service import ExtractionService
 from app.core.router import EngineRouter
 from app.utils.image_utils import decode_base64_image, fetch_image_url
@@ -143,3 +145,30 @@ router.post("/extract/odometer", response_model=ExtractionResponse)(
 router.post("/extract/fuel-pump-reading", response_model=ExtractionResponse)(
     _make_type_endpoint("fuel_pump_reading")
 )
+
+
+# Comparison Endpoint
+@router.post("/compare/rc-book", response_model=ComparisonResponse)
+def compare_rc_book(request: ExtractionRequest):
+    """Compare RC book extraction across all available engines."""
+    image_bytes = _get_image_bytes(request)
+
+    # Build engine dict from all registered engines
+    engines = {
+        name: engine_router.get_engine(name)
+        for name in engine_router.list_engines()
+    }
+
+    if not engines:
+        raise HTTPException(status_code=500, detail="No engines registered")
+
+    comparator = Comparator(engines=engines)
+    result = comparator.compare(image_bytes, document_type="rc_book")
+
+    return ComparisonResponse(
+        success=True,
+        document_type="rc_book",
+        results=result.get("engine_results", {}),
+        comparison=result.get("metrics", {}),
+        recommendation=result.get("recommendation"),
+    )
