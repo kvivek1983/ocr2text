@@ -86,6 +86,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "fuel type", "fuel used", "type of fuel",
         # mParivahan / KA format
         "fuel",
+        # OCR typos for "Fuel"
+        "ftel", "fues", "fue",
     ],
     "registration_date": [
         "date of registration", "date of regn", "regn date", "date of reg", "reg date",
@@ -587,6 +589,7 @@ class RCBookMapper(BaseMapper):
             "registration authority", "registralion authority", "registratlon authority",
             "registering authority", "registrelton",  # OCR garbling of "Registration"
             "dy rto", "rto ", "financer name", "financer ", "number of",
+            "aeyn",  # OCR garbling of "Regn" (e.g. "Aeyn Nunber" = "Regn. Number")
             "cubic cap", "horse power", "bhp", "kw",
             # mParivahan / digital RC labels
             "mobile no", "ownership", "vehicle age", "vehicle status",
