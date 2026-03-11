@@ -379,6 +379,9 @@ class RCBookMapper(BaseMapper):
             # Reject if entirely non-alphanumeric (e.g. "......" from garbled OCR)
             if not re.search(r'[A-Za-z0-9]', value):
                 return False
+            # Reject if starts with non-letter/non-digit (e.g. "#gasbabon Aurarty")
+            if not re.match(r'^[A-Za-z0-9]', value.strip()):
+                return False
         if label == "registration_validity":
             v = value.strip().lower()
             # Accept date values OR "as per fitness" (MH format)
