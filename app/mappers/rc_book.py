@@ -36,9 +36,11 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
 
 FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
     "owner_name": [
-        "registered owner", "owner's name", "owner name", "owner",
+        "registered owner", "owner's name", "owner name",
         # OCR typo tolerance
         "owncr name", "owncrname", "ownername",
+        # Short alias last (most greedy)
+        "owner",
     ],
     "father_name": [
         "son/wife/daughter of", "s/w/d of",
