@@ -4,10 +4,12 @@ from typing import Dict, List, Optional, Set
 from .base import BaseMapper
 
 # Date pattern: DD-MM-YYYY, DD/MM/YYYY, MM-YYYY, etc.
+_MONTH_NAMES = r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
 _DATE_PATTERN = re.compile(
-    r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}'   # DD-MM-YYYY, DD/MM/YYYY
-    r'|\d{1,2}[-/]\d{2,4}'              # MM-YYYY
-    r'|\d{1,2}[A-Za-z]{3,9}[-/]?\d{4}' # 24Sep-2025, 24Sep2025
+    r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}'          # DD-MM-YYYY, DD/MM/YYYY
+    r'|\d{1,2}[-/]\d{2,4}'                     # MM-YYYY
+    rf'|\d{{1,2}}{_MONTH_NAMES}[-/]?\d{{4}}',  # 24Sep-2025, 24Sep2025
+    re.IGNORECASE,
 )
 
 # Common fields — appear on both sides (varies by state), used as merge key
@@ -75,6 +77,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
 BACK_FIELD_ALIASES: Dict[str, List[str]] = {
     "vehicle_make": [
         "maker's name", "vehicle make", "manufacturer", "maker", "make",
+        # OCR splits "Maker's Name" across lines — match partial
+        "maker's namex", "maker' s name",
     ],
     "vehicle_model": [
         "model name", "model namo", "vehicle model", "maker model", "model",
@@ -271,6 +275,9 @@ class RCBookMapper(BaseMapper):
     # Fields that must be numeric (small integers)
     _NUMERIC_FIELDS: Set[str] = {"cylinders", "seating_capacity"}
 
+    # Fields that must look like a VIN/chassis (alphanumeric, 15-20 chars)
+    _VIN_FIELDS: Set[str] = {"chassis_number"}
+
     def _validate_field_value(self, label: str, value: str) -> bool:
         """Field-specific validation to prevent wrong value extraction."""
         if label in self._DATE_FIELDS:
@@ -278,9 +285,22 @@ class RCBookMapper(BaseMapper):
         if label in self._REG_NUMBER_FIELDS:
             return bool(_REG_NUMBER_PATTERN.search(value))
         if label in self._NUMERIC_FIELDS:
-            # Must contain at least one digit and be predominantly numeric
             stripped = value.strip()
             return bool(re.match(r'^\d{1,3}$', stripped))
+        if label in self._VIN_FIELDS:
+            stripped = re.sub(r'[\s.\-]', '', value)
+            # VIN/chassis: 15-20 alphanumeric chars, not a date or reg number
+            if not (13 <= len(stripped) <= 22 and re.match(r'^[A-Z0-9]+$', stripped, re.IGNORECASE)):
+                return False
+            # Reject if it looks like a date
+            if _DATE_PATTERN.search(value):
+                return False
+            return True
+        if label == "vehicle_make":
+            # Reject label fragments like "'s.Name", "'sName", "n Number", "Financer Name"
+            v = value.strip().lower()
+            if v.startswith("'s") or v.startswith("s.name") or v.startswith("n ") or "financer" in v or "financier" in v:
+                return False
         return True
 
     def _clean_field_value(self, label: str, value: str) -> str:
@@ -393,7 +413,9 @@ class RCBookMapper(BaseMapper):
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
             "owncr", "ownername", "owncrname", "horse power", "bhp",
-            "carg", "card issue", "16suo",
+            "carg", "card issue", "petrol", "diesel", "cng", "lpg", "electric",
+            "individual", "as per fitness", "as par fitness", "asper",
+            "'s.name", "'sname", "s.name",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
@@ -431,7 +453,10 @@ class RCBookMapper(BaseMapper):
     ) -> Optional[Dict[str, str]]:
         """Fallback: find registration date by looking for DD-MM-YYYY near date labels."""
         # Full date pattern: DD-MM-YYYY, DD/MM/YYYY, or DDMmm-YYYY (e.g. 24Sep-2025)
-        full_date = re.compile(r'(\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{1,2}[A-Za-z]{3,9}[-/]?\d{4})')
+        full_date = re.compile(
+            rf'(\d{{1,2}}[-/]\d{{1,2}}[-/]\d{{4}}|\d{{1,2}}{_MONTH_NAMES}[-/]?\d{{4}})',
+            re.IGNORECASE,
+        )
         for line in lines:
             match = full_date.search(line)
             if match:
