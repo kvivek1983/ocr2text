@@ -474,9 +474,11 @@ class RCBookMapper(BaseMapper):
             return None
 
         escaped = re.escape(alias)
-        # Pattern: alias followed by optional colon/dash, then value on same line
+        # Pattern: alias followed by optional colon/dash, then value on same line.
+        # (?!\w) prevents alias from matching as prefix of a longer word
+        # (e.g., "owner" should not match "Ownership" line → captures "ship." as value)
         same_line_pattern = re.compile(
-            rf"(?i)(?:^|(?<=\s)){escaped}\s*[:\-.]?\s*(.+)",
+            rf"(?i)(?:^|(?<=\s)){escaped}(?!\w)\s*[:\-.]?\s*(.+)",
         )
         # Pattern: alias is the entire line (or most of it) — value is on next line
         label_only_pattern = re.compile(
