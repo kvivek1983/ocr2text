@@ -5,6 +5,8 @@ from app.api.schemas import (
     ExtractionRequest,
     ExtractionResponse,
     FieldResult,
+    ImageQuality,
+    DocumentAuthenticity,
 )
 from app.config import settings
 from app.core.extraction_service import ExtractionService
@@ -29,6 +31,45 @@ def _get_image_bytes(request: ExtractionRequest) -> bytes:
     raise HTTPException(status_code=400, detail="No image provided")
 
 
+def _build_response(result: dict) -> ExtractionResponse:
+    """Build ExtractionResponse from extraction result dict."""
+    image_quality = None
+    if result.get("image_quality"):
+        iq = result["image_quality"]
+        image_quality = ImageQuality(
+            overall_score=iq["overall_score"],
+            is_acceptable=iq["is_acceptable"],
+            feedback=iq.get("feedback", []),
+            blur_score=iq.get("blur_score", 0.0),
+            brightness_score=iq.get("brightness_score", 0.0),
+            resolution_score=iq.get("resolution_score", 0.0),
+            completeness_score=iq.get("completeness_score", 0.0),
+            missing_mandatory=iq.get("missing_mandatory", []),
+        )
+
+    document_authenticity = None
+    if result.get("document_authenticity"):
+        da = result["document_authenticity"]
+        document_authenticity = DocumentAuthenticity(
+            is_authentic=da["is_authentic"],
+            confidence=da["confidence"],
+            structural=da.get("structural", {}),
+            visual=da.get("visual", {}),
+        )
+
+    return ExtractionResponse(
+        success=result["success"],
+        document_type=result["document_type"],
+        confidence=result["confidence"],
+        fields=[FieldResult(**f) for f in result["fields"]],
+        raw_text=result["raw_text"],
+        processing_time_ms=result["processing_time_ms"],
+        image_quality=image_quality,
+        document_authenticity=document_authenticity,
+        detected_side=result.get("detected_side"),
+    )
+
+
 @router.get("/health")
 def health():
     return {"status": "healthy", "engines": engine_router.list_engines()}
@@ -49,16 +90,10 @@ def extract(request: ExtractionRequest):
         engine=engine,
         document_type=request.document_type,
         include_raw_text=request.include_raw_text,
+        side=request.side,
     )
 
-    return ExtractionResponse(
-        success=result["success"],
-        document_type=result["document_type"],
-        confidence=result["confidence"],
-        fields=[FieldResult(**f) for f in result["fields"]],
-        raw_text=result["raw_text"],
-        processing_time_ms=result["processing_time_ms"],
-    )
+    return _build_response(result)
 
 
 def _make_type_endpoint(doc_type: str):
@@ -71,16 +106,10 @@ def _make_type_endpoint(doc_type: str):
             engine=engine,
             document_type=doc_type,
             include_raw_text=request.include_raw_text,
+            side=request.side,
         )
 
-        return ExtractionResponse(
-            success=result["success"],
-            document_type=result["document_type"],
-            confidence=result["confidence"],
-            fields=[FieldResult(**f) for f in result["fields"]],
-            raw_text=result["raw_text"],
-            processing_time_ms=result["processing_time_ms"],
-        )
+        return _build_response(result)
 
     return endpoint
 
