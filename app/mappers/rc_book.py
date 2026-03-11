@@ -35,7 +35,11 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
 }
 
 FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
-    "owner_name": ["registered owner", "owner's name", "owner name", "owner"],
+    "owner_name": [
+        "registered owner", "owner's name", "owner name", "owner",
+        # OCR typo tolerance
+        "owncr name", "owncrname", "ownername",
+    ],
     "father_name": [
         "son/wife/daughter of", "s/w/d of",
         "s/o", "d/o", "w/o", "son of", "daughter of", "wife of",
@@ -135,6 +139,8 @@ _FUEL_TYPES = [
     "PETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID",
     "PETROL/CNG", "PETROL/LPG", "DIESEL/CNG",
     "PETROLCNG", "PETROLLPG", "DIESELCNG",
+    # OCR typos (G→O, G→6, etc.)
+    "PETROLCNO", "PETROL/CNO",
 ]
 
 
@@ -279,6 +285,10 @@ class RCBookMapper(BaseMapper):
                 return match.group(0)
         if label == "fuel_type":
             return self._normalize_fuel(value.strip())
+        if label == "owner_name":
+            # Strip trailing "Son/Wife/Daughter of" merged text
+            cleaned = re.split(r'(?i)\s+son.{0,6}w[il]|\s+[Ss]\s*/\s*[Ww]\s*/\s*[Dd]', value)[0].strip()
+            return cleaned if cleaned else value
         return value
 
     def _try_extract(
@@ -368,6 +378,7 @@ class RCBookMapper(BaseMapper):
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
+            "owncr", "ownername", "owncrname",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
@@ -435,6 +446,7 @@ class RCBookMapper(BaseMapper):
         """Normalize merged fuel strings like PETROLCNG -> PETROL/CNG."""
         mappings = {
             "PETROLCNG": "PETROL/CNG",
+            "PETROLCNO": "PETROL/CNG",
             "PETROLLPG": "PETROL/LPG",
             "DIESELCNG": "DIESEL/CNG",
         }

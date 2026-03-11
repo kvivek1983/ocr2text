@@ -18,8 +18,10 @@ RC_HEADER_MARKERS = [
     "registratlon certificate",
     "registratlon certiflcate",
     "form 23",
+    "form23",
     "form no. 23",
     "certificate of registration",
+    "certificate ofregistration",
     # OCR-tolerant: broader matches for garbled/variant headers
     "indian union",
     "indian unlon",
