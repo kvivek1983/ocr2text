@@ -546,6 +546,7 @@ class RCBookMapper(BaseMapper):
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
             "owncr", "ownername", "ownernamr", "owncrname", "horse power", "bhp",
             "card ", "card tsw", "sertal",  # OCR garbling of "Card Issue Date" / "Serial"
+            "wheet",  # OCR typo for "wheel" (e.g. "Wheet Base(mm)")
             "carg", "card issue", "petrol", "diesel", "cng", "lpg", "electric",
             "individual", "asper",
             "'s.name", "'sname", "s.name",
