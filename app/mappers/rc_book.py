@@ -26,6 +26,8 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
     "engine_number": [
         "engine/motor no", "engine/motor number", "engine no", "engine number",
         "eng no", "eng. no",
+        # MH format: spaces around slash
+        "engine / motor no", "engine / motor number",
         # OCR merged/period variants
         "engine/motor.no", "engine/motor.number",
         # OCR merged (no space)
@@ -35,6 +37,8 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
     ],
     "chassis_number": [
         "chassis no", "chassis number", "ch no", "chasi no", "ch. no",
+        # MH format: space before "number"
+        "chassis number ",
         # OCR merged variant
         "chassisno",
     ],
@@ -61,7 +65,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
     ],
     "registration_validity": [
         "regn validity", "regn. validity", "registration validity",
-        "as per fitness",
+        # MH format: validity is "As per Fitness" (no fixed date)
+        "as per fitness", "as par fitness",
     ],
     "fitness_expiry": ["fitness upto", "fit upto", "fitness valid till", "valid till"],
     "tax_expiry": ["tax upto", "tax valid till", "tax paid upto"],
@@ -89,6 +94,8 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
     "color": ["colour", "color", "vehicle colour"],
     "seating_capacity": [
         "seating(in all) capacity", "seating capacity", "seating(in all)",
+        # MH format: spaces around parens
+        "seating (in all)", "seating (in all) / standing", "seating (in a)",
         "seats", "no. of seats", "seating cap",
         # OCR typo tolerance
         "seating(in all gapacity",
@@ -135,6 +142,14 @@ FRONT_MANDATORY = [
     "registration_number", "owner_name", "fuel_type", "registration_date",
 ]
 BACK_MANDATORY = ["registration_number", "vehicle_make", "engine_number", "chassis_number"]
+
+# Valid Indian state/UT registration code prefixes
+_VALID_STATE_CODES = {
+    "AN", "AP", "AR", "AS", "BR", "CG", "CH", "DD", "DL", "DN", "GA", "GJ",
+    "HP", "HR", "JH", "JK", "KA", "KL", "LA", "LD", "MH", "ML", "MN", "MP",
+    "MZ", "NL", "OD", "OR", "PB", "PY", "RJ", "SK", "TN", "TR", "TS", "UK",
+    "UP", "UT", "WB",
+}
 
 # Indian vehicle registration number pattern (e.g., GJ27TG4232, KA01AB1234)
 # Allow alphanumeric in middle segment to handle OCR misreads (e.g., T→1)
@@ -274,6 +289,8 @@ class RCBookMapper(BaseMapper):
     _REG_NUMBER_FIELDS: Set[str] = {"registration_number"}
     # Fields that must be numeric (small integers)
     _NUMERIC_FIELDS: Set[str] = {"cylinders", "seating_capacity"}
+    # Fields that must be numeric (decimals/integers, e.g. 1462.00 or 2740)
+    _NUMERIC_DECIMAL_FIELDS: Set[str] = {"cubic_capacity", "wheelbase", "unladen_weight"}
 
     # Fields that must look like a VIN/chassis (alphanumeric, 15-20 chars)
     _VIN_FIELDS: Set[str] = {"chassis_number"}
@@ -283,12 +300,22 @@ class RCBookMapper(BaseMapper):
         if label in self._DATE_FIELDS:
             return bool(_DATE_PATTERN.search(value))
         if label in self._REG_NUMBER_FIELDS:
-            return bool(_REG_NUMBER_PATTERN.search(value))
+            match = _REG_NUMBER_PATTERN.search(value)
+            if not match:
+                return False
+            # Validate state code prefix
+            reg = (match.group(1) or match.group(2)).replace(" ", "").upper()
+            return reg[:2] in _VALID_STATE_CODES
         if label in self._NUMERIC_FIELDS:
             stripped = value.strip()
             return bool(re.match(r'^\d{1,3}$', stripped))
+        if label in self._NUMERIC_DECIMAL_FIELDS:
+            stripped = value.strip()
+            # Must START with a digit — e.g. "1462.00", "2740", "1197 CC", "875 KG"
+            # Reject label fragments like "/ Horse Power(BHP/Kw)" that start with non-digits
+            return bool(re.match(r'^\d', stripped))
         if label in self._VIN_FIELDS:
-            stripped = re.sub(r'[\s.\-]', '', value)
+            stripped = re.sub(r'[\s.\-~]', '', value)
             # VIN/chassis: 15-20 alphanumeric chars, not a date or reg number
             if not (13 <= len(stripped) <= 22 and re.match(r'^[A-Z0-9]+$', stripped, re.IGNORECASE)):
                 return False
@@ -303,6 +330,19 @@ class RCBookMapper(BaseMapper):
                 return False
             # Reject if it looks like a registration number
             if _REG_NUMBER_PATTERN.search(value):
+                return False
+        if label == "registration_validity":
+            v = value.strip().lower()
+            # Accept date values OR "as per fitness" (MH format)
+            if _DATE_PATTERN.search(value):
+                return True
+            if "fitness" in v or "as per" in v:
+                return True
+            return False
+        if label == "emission_norms":
+            v = value.strip().upper()
+            # Must contain a known emission standard keyword
+            if not any(kw in v for kw in ["BHARAT", "BS", "EURO", "STAGE"]):
                 return False
         if label == "fuel_type":
             v = value.strip().upper()
@@ -321,6 +361,8 @@ class RCBookMapper(BaseMapper):
 
     def _clean_field_value(self, label: str, value: str) -> str:
         """Extract clean value from merged OCR text (e.g., reg number + date on same line)."""
+        if label in self._VIN_FIELDS:
+            return re.sub(r'[\s.\-~]', '', value).upper()
         if label in self._REG_NUMBER_FIELDS:
             match = _REG_NUMBER_PATTERN.search(value)
             if match:
@@ -376,8 +418,8 @@ class RCBookMapper(BaseMapper):
                         cleaned = self._clean_field_value(label, value)
                         return {"label": label, "value": cleaned}
 
-            # Same-line failed or was rejected — look ahead up to 3 lines
-            for offset in range(1, 4):
+            # Same-line failed or was rejected — look ahead up to 5 lines
+            for offset in range(1, 6):
                 if i + offset >= len(lines):
                     break
                 next_value = lines[i + offset].strip()
@@ -430,11 +472,12 @@ class RCBookMapper(BaseMapper):
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
             "owncr", "ownername", "owncrname", "horse power", "bhp",
             "carg", "card issue", "petrol", "diesel", "cng", "lpg", "electric",
-            "individual", "as per fitness", "as par fitness", "asper",
+            "individual", "asper",
             "'s.name", "'sname", "s.name",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
-            "card issue", "serial",
+            "card issue", "serial", "registration authority", "registralion authority",
+            "dy rto", "rto ", "financer name", "financer ", "number of",
         ]
         for indicator in label_indicator_words:
             if text_lower.startswith(indicator):
