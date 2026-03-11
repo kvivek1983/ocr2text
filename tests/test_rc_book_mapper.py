@@ -39,12 +39,12 @@ class TestRCBookMapperFront:
         field_dict = {f["label"]: f["value"] for f in fields}
         assert "tax_expiry" in field_dict
 
-    def test_front_does_not_extract_back_fields(self, sample_raw_text_rc_front):
+    def test_front_does_not_extract_back_only_fields(self, sample_raw_text_rc_front):
+        """Front should not extract back-only fields (vehicle_make, cubic_capacity etc.)"""
         fields = self.mapper.map_fields(sample_raw_text_rc_front, side="front")
         field_dict = {f["label"]: f["value"] for f in fields}
-        assert "engine_number" not in field_dict
-        assert "chassis_number" not in field_dict
         assert "cubic_capacity" not in field_dict
+        assert "vehicle_make" not in field_dict
 
     def test_front_all_mandatory_fields_present(self, sample_raw_text_rc_front):
         fields = self.mapper.map_fields(sample_raw_text_rc_front, side="front")
@@ -131,7 +131,7 @@ class TestRCBookMapperGujaratFormat:
         self.mapper = RCBookMapper()
 
     def test_gujarat_front_extraction(self):
-        """Real Gujarat RC front side OCR output."""
+        """Real Gujarat RC front side — clean OCR output."""
         text = """Indian Union Vehide Registration Certificate
 Issued by Gujarat Motor Vehicle Department. .
 Regn No
@@ -163,9 +163,14 @@ AHMEDABAD(EAST)-GUJARAT-382440"""
         assert "owner_name" in field_dict
         assert "SUNILBHAI" in field_dict["owner_name"]
         assert "fuel_type" in field_dict
+        # Gujarat front has engine/chassis — now COMMON fields
+        assert "engine_number" in field_dict
+        assert "Z12ENF152032" in field_dict["engine_number"]
+        assert "chassis_number" in field_dict
+        assert "MA3ZFDFSKSH252355" in field_dict["chassis_number"]
 
     def test_gujarat_back_extraction(self):
-        """Real Gujarat RC back side OCR output."""
+        """Real Gujarat RC back side — clean OCR output."""
         text = """Vehicle Class: MOTOR CAB (LPV)
 Regn. Number
 GJ27TG4232
@@ -199,4 +204,191 @@ AHMEDABAD EAST"""
         assert "MARUTI" in field_dict["vehicle_make"]
         assert "vehicle_model" in field_dict
         assert "TOUR S CNG" in field_dict["vehicle_model"]
-        assert "chassis_number" not in field_dict  # not on back of Gujarat format
+        # Gujarat back has NO engine/chassis
+        assert "chassis_number" not in field_dict
+        assert "engine_number" not in field_dict
+
+
+class TestRCBookMapperFallbacks:
+    """Tests for fallback extraction strategies."""
+
+    def setup_method(self):
+        self.mapper = RCBookMapper()
+
+    def test_fuel_type_fallback_petrolcng(self):
+        """Fuel type extracted even without 'Fuel' label (OCR drops label)."""
+        text = """REGISTRATION CERTIFICATE
+Registration No: KA01AB1234
+Owner Name: RAJESH KUMAR
+Date of Registration: 15/03/2020
+PETROLCNG"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "fuel_type" in field_dict
+        assert field_dict["fuel_type"] == "PETROL/CNG"
+
+    def test_fuel_type_fallback_diesel(self):
+        """Standalone DIESEL line without label."""
+        text = """REGISTRATION CERTIFICATE
+Registration No: KA01AB1234
+Owner Name: RAJESH KUMAR
+Date of Registration: 15/03/2020
+DIESEL"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "fuel_type" in field_dict
+        assert field_dict["fuel_type"] == "DIESEL"
+
+    def test_reg_number_fallback_regex(self):
+        """Registration number extracted by regex when label not matched."""
+        text = """REGISTRATION CERTIFICATE
+GJ27TG4232
+Maker's Name:
+MARUTI SUZUKI"""
+        fields = self.mapper.map_fields(text, side="back")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "registration_number" in field_dict
+        assert "GJ27TG4232" in field_dict["registration_number"]
+
+    def test_ocr_typo_regr_number(self):
+        """OCR misreads 'Regn' as 'Regr' — should still match."""
+        text = """Regr Number
+GJ27TG4232
+Maker's Name:
+MARUTI SUZUKI"""
+        fields = self.mapper.map_fields(text, side="back")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "registration_number" in field_dict
+        assert "GJ27TG4232" in field_dict["registration_number"]
+
+    def test_ocr_typo_model_namo(self):
+        """OCR misreads 'Model Name' as 'Model Namo' — should still match."""
+        text = """Registration No: GJ27TG4232
+Maker's Name:
+MARUTI SUZUKI
+Model Namo:
+TOUR S CNG"""
+        fields = self.mapper.map_fields(text, side="back")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "vehicle_model" in field_dict
+        assert "TOUR S CNG" in field_dict["vehicle_model"]
+
+    def test_descriptor_text_skipped(self):
+        """Parenthetical descriptor text should be skipped for next-line value."""
+        text = """REGISTRATION CERTIFICATE
+Registration No: KA01AB1234
+Owner Name: RAJESH KUMAR
+Son/Wife/Daughter of (In case of Individual Owner)
+KARSANBHAI CHUNARA
+Fuel Type: Petrol
+Date of Registration: 15/03/2020"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "father_name" in field_dict
+        assert "KARSANBHAI CHUNARA" in field_dict["father_name"]
+
+    def test_next_line_skips_blanks(self):
+        """Next-line extraction skips blank lines to find value."""
+        text = """REGISTRATION CERTIFICATE
+Regn No
+
+GJ27TG4232
+Owner Name: RAJESH KUMAR
+Fuel Type: Petrol
+Date of Registration: 15/03/2020"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "registration_number" in field_dict
+        assert "GJ27TG4232" in field_dict["registration_number"]
+
+
+class TestRCBookMapperRealPaddleOCR:
+    """Tests with actual noisy PaddleOCR output from Gujarat RC images."""
+
+    def setup_method(self):
+        self.mapper = RCBookMapper()
+
+    def test_noisy_front_ocr(self):
+        """Real PaddleOCR output from Gujarat RC front — messy but should extract key fields."""
+        text = """Indian Union Vehide Registration Certificate
+Issued by Gujarat Motor Vehicle Department. .
+Regn No
+Date of RegnRegnValidity
+Owner
+GJ271G4232
+29-08-2025
+AsperFitness
+Seral
+Chassis No
+MA3ZFDFSKSH252355
+Engine/Motor No
+Z12ENF152032
+Owner Name
+SUNILBHAIKARSANBHAICHUNARA
+Son/Wife/Daughter of (In case of Individual Owner)
+KARSANBHAI CHUNARA
+Ownership
+INDIVIDUAL
+PETROLCNG
+Address
+EmlssIon Norms.? 58, SWApNA SAnKET SOCIETY, Bh DERIyA VAS, VaTVA,DASKRO..
+pJe
+BHARAT STAGE*AHMEDABAD(EAST)-GUJARAT-382440
+C"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        # Engine and chassis should still be extractable (common fields)
+        assert "engine_number" in field_dict
+        assert "Z12ENF152032" in field_dict["engine_number"]
+        assert "chassis_number" in field_dict
+        assert "MA3ZFDFSKSH252355" in field_dict["chassis_number"]
+        # Owner name (merged but present)
+        assert "owner_name" in field_dict
+        # Fuel type via fallback
+        assert "fuel_type" in field_dict
+        assert field_dict["fuel_type"] == "PETROL/CNG"
+        # Registration number — should be found via fallback regex
+        assert "registration_number" in field_dict
+
+    def test_noisy_back_ocr(self):
+        """Real PaddleOCR output from Gujarat RC back — messy but should extract key fields."""
+        text = """VecsMOTOR CABLPV
+GJ08147349
+Regr Number
+Maker's Name
+MARUTI SUZURIINDIALTD
+GJ27G4232
+Model Namo:
+TOUR S CNG
+Colour:
+-
+Body Type
+PEARLARCTICWHITE
+RIGID (PASSENGERCAR
+Seating(in all Gapacity
+23A
+Form
+UnladenLaden Weight (Kg)
+1010
+11435
+Cublc Cap./ Horse Power (BHP/Kw) Wheel Base(mm)
+2450
+1197.008040
+Month-YearofMfg
+08-2025
+Financier:
+:
+INDUSIND BANKLIMITED
+No.of Cylinders
+Registralion Authorily
+AHMEDABAD EAST"""
+        fields = self.mapper.map_fields(text, side="back")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        # Registration number via "Regr Number" alias or regex fallback
+        assert "registration_number" in field_dict
+        # Vehicle make should be extracted
+        assert "vehicle_make" in field_dict
+        assert "MARUTI" in field_dict["vehicle_make"]
+        # Model via "model namo" alias
+        assert "vehicle_model" in field_dict
+        assert "TOUR S CNG" in field_dict["vehicle_model"]

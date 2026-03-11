@@ -3,11 +3,20 @@ from typing import Dict, List, Optional
 
 from .base import BaseMapper
 
-# Common field — appears on both sides, used as merge key
+# Common fields — appear on both sides (varies by state), used as merge key
 COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
     "registration_number": [
         "regn no", "regn. number", "registration no", "reg no", "vehicle no",
         "reg. no", "regn. no", "regn number",
+        # OCR typo tolerance
+        "regr number", "regr. number", "regr no",
+    ],
+    # Gujarat has engine/chassis on FRONT; other states on BACK — extract from either side
+    "engine_number": [
+        "engine/motor no", "engine no", "engine number", "eng no", "eng. no",
+    ],
+    "chassis_number": [
+        "chassis no", "chassis number", "ch no", "chasi no", "ch. no",
     ],
 }
 
@@ -32,6 +41,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
     "ownership": ["ownership"],
     "rto": [
         "rto", "registering authority", "registration authority", "reg. authority",
+        # OCR typo tolerance
+        "registralion authority", "registralion authorily",
     ],
 }
 
@@ -39,7 +50,9 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
     "vehicle_make": [
         "maker's name", "vehicle make", "manufacturer", "maker", "make",
     ],
-    "vehicle_model": ["model name", "model", "vehicle model", "maker model"],
+    "vehicle_model": [
+        "model name", "model namo", "vehicle model", "maker model", "model",
+    ],
     "vehicle_type": [
         "vehicle class", "body type", "type of body", "veh. class",
     ],
@@ -47,27 +60,30 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
     "seating_capacity": [
         "seating(in all) capacity", "seating capacity", "seating(in all)",
         "seats", "no. of seats", "seating cap",
-    ],
-    "engine_number": [
-        "engine/motor no", "engine no", "engine number", "eng no", "eng. no",
-    ],
-    "chassis_number": [
-        "chassis no", "chassis number", "ch no", "chasi no", "ch. no",
+        # OCR typo tolerance
+        "seating(in all gapacity",
     ],
     "manufacturing_date": [
         "month-year of mfg", "month/year of mfg", "mfg date",
         "manufacturing date", "mfg. date", "month-year of mfg.",
+        # OCR typo: merged text
+        "month-yearofmfg",
     ],
     "unladen_weight": [
         "unladen/ laden weight", "unladen/laden weight",
         "unladen weight", "ulw", "unladen wt", "ul weight",
+        # OCR typo: merged text
+        "unladenladen weight",
     ],
     "cubic_capacity": [
         "cubic cap.", "cubic capacity", "cubic cap", "cc", "engine cc",
+        # OCR typo
+        "cublc cap",
     ],
     "wheelbase": ["wheel base", "wheelbase"],
     "cylinders": [
         "no. of cylinders", "no of cyl", "cylinders", "noof cyl",
+        "no.of cylinders",
     ],
     "hypothecation": ["hypothecation", "financier", "financer", "hp", "hypothecated to"],
     "insurance_validity": ["insurance upto", "insurance valid till", "ins. upto"],
@@ -89,6 +105,18 @@ FRONT_MANDATORY = [
     "registration_number", "owner_name", "fuel_type", "registration_date",
 ]
 BACK_MANDATORY = ["registration_number", "vehicle_make", "engine_number", "chassis_number"]
+
+# Indian vehicle registration number pattern (e.g., GJ27TG4232, KA01AB1234)
+_REG_NUMBER_PATTERN = re.compile(
+    r"\b([A-Z]{2}\s*\d{1,2}\s*[A-Z]{0,3}\s*\d{3,5})\b", re.IGNORECASE
+)
+
+# Known fuel types for fallback extraction
+_FUEL_TYPES = [
+    "PETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID",
+    "PETROL/CNG", "PETROL/LPG", "DIESEL/CNG",
+    "PETROLCNG", "PETROLLPG", "DIESELCNG",
+]
 
 
 def _detect_side(raw_text: str) -> str:
@@ -131,6 +159,19 @@ class RCBookMapper(BaseMapper):
                     used_labels.add(label)
                     break
 
+        # Fallback extractions for fields that are hard to get via label matching
+        if "registration_number" not in used_labels:
+            found = self._fallback_registration_number(lines)
+            if found:
+                fields.append(found)
+                used_labels.add("registration_number")
+
+        if side == "front" and "fuel_type" not in used_labels:
+            found = self._fallback_fuel_type(lines)
+            if found:
+                fields.append(found)
+                used_labels.add("fuel_type")
+
         return fields
 
     def _try_extract(
@@ -140,7 +181,8 @@ class RCBookMapper(BaseMapper):
 
         Handles two patterns:
         1. Same-line: "Label: Value" or "Label Value"
-        2. Next-line: Label on one line, value on the next line
+        2. Next-line: Label on one line, value on the next non-empty,
+           non-label line (looks ahead up to 3 lines)
         """
         if label in used_labels:
             return None
@@ -156,35 +198,92 @@ class RCBookMapper(BaseMapper):
         )
 
         for i, line in enumerate(lines):
-            # Try same-line extraction first
+            # Check if this line contains our alias
             match = same_line_pattern.search(line)
+            if not match and not label_only_pattern.match(line):
+                continue
+
+            # Try same-line extraction first
             if match:
                 value = match.group(1).strip()
                 value = value.rstrip(":").rstrip("-").strip()
-                # Reject if the captured value is just another label keyword
-                if value and len(value) > 1 and not self._is_label_text(value):
+                # Accept if it's a real value (not a label keyword or descriptor)
+                if value and len(value) > 1 and not self._is_label_or_descriptor(value):
                     return {"label": label, "value": value}
 
-            # Try label-only pattern: value is on the next line
-            if label_only_pattern.match(line) and i + 1 < len(lines):
-                next_value = lines[i + 1].strip()
+            # Same-line failed or was rejected — look ahead up to 3 lines
+            for offset in range(1, 4):
+                if i + offset >= len(lines):
+                    break
+                next_value = lines[i + offset].strip()
                 next_value = next_value.rstrip(":").rstrip("-").strip()
-                if next_value and len(next_value) > 1 and not self._is_label_text(next_value):
-                    return {"label": label, "value": next_value}
+                # Skip empty lines, single-char lines, and label-like text
+                if not next_value or len(next_value) <= 1:
+                    continue
+                if self._is_label_or_descriptor(next_value):
+                    continue
+                return {"label": label, "value": next_value}
 
         return None
 
-    def _is_label_text(self, text: str) -> bool:
-        """Check if text looks like a label rather than a value."""
+    def _is_label_or_descriptor(self, text: str) -> bool:
+        """Check if text looks like a label or descriptor rather than a value."""
+        text_lower = text.lower().strip()
+
+        # Short label keywords
         label_keywords = [
             "name", "number", "date", "type", "capacity", "weight",
             "authority", "norms", "upto", "validity",
         ]
-        text_lower = text.lower().strip()
-        # If the text is very short and matches a label keyword, skip it
-        if len(text_lower) <= 6 and text_lower in label_keywords:
+        if len(text_lower) <= 8 and text_lower in label_keywords:
             return True
+
+        # Descriptor phrases in parentheses (e.g., "(In case of Individual Owner)")
+        if text_lower.startswith("(") and text_lower.endswith(")"):
+            return True
+
+        # Looks like another field label: mostly lowercase with label-like words
+        label_indicator_words = [
+            "regn", "reg ", "date of", "valid", "upto", "authority",
+            "in case of", "norms", "fitness",
+        ]
+        for indicator in label_indicator_words:
+            if text_lower.startswith(indicator):
+                return True
+
         return False
+
+    def _fallback_registration_number(self, lines: List[str]) -> Optional[Dict[str, str]]:
+        """Fallback: find registration number by regex pattern in the text."""
+        for line in lines:
+            match = _REG_NUMBER_PATTERN.search(line)
+            if match:
+                value = match.group(1).replace(" ", "")
+                # Validate: Indian reg numbers are 8-12 chars
+                if 8 <= len(value) <= 12:
+                    return {"label": "registration_number", "value": value}
+        return None
+
+    def _fallback_fuel_type(self, lines: List[str]) -> Optional[Dict[str, str]]:
+        """Fallback: find fuel type by matching known fuel type values."""
+        for line in lines:
+            line_upper = line.strip().upper()
+            for fuel in _FUEL_TYPES:
+                if fuel == line_upper or line_upper == fuel.replace("/", ""):
+                    # Normalize merged OCR text back to standard form
+                    normalized = fuel if "/" in fuel else self._normalize_fuel(line_upper)
+                    return {"label": "fuel_type", "value": normalized}
+        return None
+
+    @staticmethod
+    def _normalize_fuel(text: str) -> str:
+        """Normalize merged fuel strings like PETROLCNG -> PETROL/CNG."""
+        mappings = {
+            "PETROLCNG": "PETROL/CNG",
+            "PETROLLPG": "PETROL/LPG",
+            "DIESELCNG": "DIESEL/CNG",
+        }
+        return mappings.get(text, text)
 
     def document_type(self) -> str:
         return "rc_book"
