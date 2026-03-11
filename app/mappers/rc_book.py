@@ -18,9 +18,13 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
     "engine_number": [
         "engine/motor no", "engine/motor number", "engine no", "engine number",
         "eng no", "eng. no",
+        # OCR merged/period variants
+        "engine/motor.no", "engine/motor.number",
     ],
     "chassis_number": [
         "chassis no", "chassis number", "ch no", "chasi no", "ch. no",
+        # OCR merged variant
+        "chassisno",
     ],
 }
 
@@ -141,18 +145,63 @@ class RCBookMapper(BaseMapper):
         if side is None:
             side = _detect_side(raw_text)
 
-        # Select field set based on side
+        lines = raw_text.strip().split("\n")
+
+        # Try both line orderings and pick the better result
+        # (handles rotated/upside-down images where OCR reads bottom-to-top)
+        normal_fields = self._extract_fields(lines, side)
+        reversed_fields = self._extract_fields(list(reversed(lines)), side)
+
+        normal_score = self._score_extraction(normal_fields, side)
+        reversed_score = self._score_extraction(reversed_fields, side)
+        fields = reversed_fields if reversed_score > normal_score else normal_fields
+
+        return fields
+
+    @staticmethod
+    def _score_extraction(fields: List[Dict[str, str]], side: str) -> float:
+        """Score extraction quality to choose between normal and reversed line order.
+
+        Scores based on: mandatory field count + field value plausibility.
+        """
+        mandatory = FRONT_MANDATORY if side == "front" else BACK_MANDATORY
+        field_dict = {f["label"]: f["value"] for f in fields}
+        score = 0.0
+
+        # +10 per mandatory field found
+        for m in mandatory:
+            if m in field_dict:
+                score += 10
+
+        # +5 per non-mandatory field
+        score += 5 * (len(fields) - sum(1 for f in fields if f["label"] in mandatory))
+
+        # Value plausibility bonuses
+        owner = field_dict.get("owner_name", "")
+        if owner:
+            # Owner name should be mostly letters/spaces, not a serial number
+            alpha_ratio = sum(1 for c in owner if c.isalpha() or c == ' ') / max(len(owner), 1)
+            score += 10 * alpha_ratio  # 0-10 bonus
+
+        chassis = field_dict.get("chassis_number", "")
+        if chassis:
+            # VIN/chassis is typically 17 chars, alphanumeric
+            if 15 <= len(chassis) <= 20:
+                score += 5
+
+        return score
+
+    def _extract_fields(self, lines: List[str], side: str) -> List[Dict[str, str]]:
+        """Core extraction logic on a list of lines."""
         if side == "back":
             side_aliases = BACK_FIELD_ALIASES
         else:
             side_aliases = FRONT_FIELD_ALIASES
 
-        # Always include common fields
         all_aliases = {**COMMON_FIELD_ALIASES, **side_aliases}
 
         fields = []
-        lines = raw_text.strip().split("\n")
-        used_labels = set()
+        used_labels: set = set()
 
         for label, aliases in all_aliases.items():
             if label in used_labels:
@@ -164,7 +213,7 @@ class RCBookMapper(BaseMapper):
                     used_labels.add(label)
                     break
 
-        # Fallback extractions for fields that are hard to get via label matching
+        # Fallback extractions
         if "registration_number" not in used_labels:
             found = self._fallback_registration_number(lines)
             if found:
@@ -178,7 +227,6 @@ class RCBookMapper(BaseMapper):
                 used_labels.add("fuel_type")
 
         if side == "front" and "registration_date" not in used_labels:
-            # Get existing field values to avoid picking the same date
             existing_values = {f["value"] for f in fields}
             found = self._fallback_registration_date(lines, existing_values)
             if found:

@@ -432,6 +432,35 @@ TOUR S CNG"""
         # Should get the actual reg number, not the maker name
         assert "MARUTI" not in field_dict["registration_number"]
 
+    def test_reversed_ocr_text(self):
+        """Rotated image: OCR reads bottom-to-top, labels after values."""
+        text = """BHARAT STAGE
+Fmission Norm's.
+Fue
+205 GALI NO-1 RASULABAD, AZAD NAGAR, BHATAR ROAD. SURAT-
+Issued by:Gujarat Motor Vehicle Department.
+: Indian Union Vehicle Registraticn Certificafe.
+INDIVIDQUAL
+Owncrship
+JORAVARKHANPATHAN
+Owner Name
+K15CN9973632.
+Engine/Motor.No
+MA3BNC625TAB97895
+ChassisNo
+GJ05CY8270
+31-01-2026
+Data ot Regn"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        # Reversed detection should give correct owner name, not engine number
+        assert "owner_name" in field_dict
+        assert "JORAVARKHANPATHAN" in field_dict["owner_name"]
+        # Chassis should be the 17-char VIN, not the reg number
+        assert "chassis_number" in field_dict
+        assert field_dict["chassis_number"] == "MA3BNC625TAB97895"
+        assert "registration_number" in field_dict
+
     def test_mh_front_merged_reg_date(self):
         """MH format: reg number and date merged on same line should be split."""
         text = """Indian Union Vehicle Registration Certificate
