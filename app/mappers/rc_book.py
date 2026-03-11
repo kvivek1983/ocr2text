@@ -83,9 +83,10 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
 
 BACK_FIELD_ALIASES: Dict[str, List[str]] = {
     "vehicle_make": [
-        "maker's name", "vehicle make", "manufacturer", "maker", "make",
+        "maker's name", "vehicle make", "manufacturer", "maker",
         # OCR splits "Maker's Name" across lines — match partial
         "maker's namex", "maker' s name",
+        # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
         "model name", "model namo", "vehicle model", "maker model", "model",
@@ -237,6 +238,14 @@ class RCBookMapper(BaseMapper):
             # VIN/chassis is typically 17 chars, alphanumeric
             if 15 <= len(chassis) <= 20:
                 score += 5
+
+        vehicle_make = field_dict.get("vehicle_make", "")
+        if vehicle_make:
+            # Vehicle make should be a reasonable name (>=5 chars, mostly alpha)
+            if len(vehicle_make) >= 5:
+                score += 5
+            else:
+                score -= 10  # penalize implausibly short make values like "r's Name"
 
         return score
 
