@@ -19,7 +19,7 @@ app/
   storage/      - SQLAlchemy models + repository
   comparison/   - Multi-engine comparison + metrics
   utils/        - Image/text utilities
-tests/          - pytest suite (93+ tests)
+tests/          - pytest suite (191+ tests)
 ```
 
 **Key patterns:**
@@ -29,45 +29,96 @@ tests/          - pytest suite (93+ tests)
 
 ---
 
+## Active Initiatives
+
+### "RC SmartExtract" — RC Book Extraction Enhancement
+
+**Status:** Live testing & hardening (Phase 2)
+**Reference name:** `rc-smartextract` — use this to resume work on RC book extraction improvements.
+
+**Goal:** Production-grade extraction for Indian Registration Certificates (RC books/smart cards) across all states, with front/back support, image quality feedback, document authenticity validation, and multi-engine comparison.
+
+**What this covers:**
+1. Front/back side-aware extraction with auto-detection
+2. Multi-state format handling (KA, GJ, and accumulating more)
+3. Image quality assessment (blur, brightness, resolution, field completeness)
+4. Document authenticity validation (structural + visual checks)
+5. N-engine comparison (`/compare/rc-book` endpoint)
+6. OCR noise tolerance (typo-tolerant aliases, regex fallbacks, multi-line extraction)
+
+**Current state (2026-03-11):**
+- All 15 implementation tasks complete
+- Live-tested with real Gujarat RC smart card images
+- Two rounds of mapper hardening based on real PaddleOCR output
+- 191 tests passing
+- Deployed to production
+
+**Known limitations:**
+- PaddleOCR merges words without spaces (e.g., "SUNILBHAIKARSANBHAICHUNARA") — OCR engine limitation
+- OCR sometimes merges adjacent label columns into one line — causes some field extraction failures
+- Tested with GJ (Gujarat) and KA (Karnataka) formats; other states need testing (MH, TN, DL, AP, etc.)
+
+---
+
 ## Changelog
 
-### 2026-03-11 — RC Book Extraction Enhancement (in progress)
+### 2026-03-11 — RC SmartExtract: Live Hardening (Phase 2)
 
-**Goal:** Enhance RC book extraction for Indian Registration Certificates with front/back support, image quality feedback, document authenticity validation, and multi-engine comparison.
+**What happened:** Tested deployed API with real Gujarat RC smart card images. Discovered format differences and PaddleOCR noise issues. Two rounds of fixes.
+
+**Round 1 — Field reclassification (`8be53fb`):**
+- Discovered vehicle_make/model/color/seating are on BACK of Indian RC smart cards (not front as modeled)
+- Moved these fields from FRONT to BACK aliases
+- Added next-line extraction pattern (OCR outputs label on one line, value on next)
+- Added Gujarat-specific aliases (engine/motor no, regn. number, etc.)
+- Added `_is_label_text()` to prevent false matches
+- Added Gujarat format tests with real OCR output
+
+**Round 2 — OCR noise tolerance (`382b77d`):**
+- Moved engine_number/chassis_number to COMMON fields (Gujarat has them on FRONT, other states on BACK)
+- Added registration number regex fallback (`_fallback_registration_number`)
+- Added fuel type fallback for unlabeled PETROL/DIESEL/CNG lines (`_fallback_fuel_type`)
+- Added OCR-typo aliases: regr, namo, registralion, cublc, gapacity, etc.
+- Enhanced next-line extraction: looks ahead up to 3 lines, skips blanks and descriptors
+- Added `_is_label_or_descriptor()`: rejects parenthetical text like "(In case of Individual Owner)"
+- Same-line rejection now cascades to next-line extraction
+- Added 9 new test cases (real PaddleOCR output, fallbacks, OCR typos)
+- 191 total tests passing
+
+**Test images used:**
+- Front: `https://oneway-live-new.s3.ap-south-1.amazonaws.com/driver/2141441773138848871.jpg`
+- Back: `https://oneway-live-new.s3.ap-south-1.amazonaws.com/driver/3075231773138848954.jpg`
+
+### 2026-03-11 — RC SmartExtract: Implementation (Phase 1)
+
+**Goal:** Build RC book extraction with front/back support, image quality, document authenticity, and multi-engine comparison.
 
 **Design decisions:**
 - Front/back are separate API calls; client merges using `registration_number` (common to both sides)
 - `side` parameter added to `ExtractionRequest` — "front", "back", or null (auto-detect)
-- Image quality: two layers — Layer A (pre-OCR: blur, brightness, resolution) + Layer B (post-OCR: mandatory field completeness)
+- Image quality: Layer A (pre-OCR: blur, brightness, resolution) + Layer B (post-OCR: mandatory field completeness)
 - Document authenticity: structural checks (critical, pass/fail) + visual checks (confidence-only, OpenCV)
-- Multi-engine comparison via new `/compare/rc-book` endpoint for testing phase
+- Multi-engine comparison via `/compare/rc-book` endpoint for testing phase
 - All new response fields optional — backward compatible
 
-**Front mandatory fields (5):** registration_number, owner_name, vehicle_make, fuel_type, registration_date
-**Back mandatory fields (3):** registration_number, engine_number, chassis_number
+**Front mandatory fields (4):** registration_number, owner_name, fuel_type, registration_date
+**Back mandatory fields (4):** registration_number, vehicle_make, engine_number, chassis_number
 
 **Commits:**
-- `5fcaff5` — Design spec: `docs/superpowers/specs/2026-03-11-rc-book-extraction-enhancement-design.md`
-- `35e605e` — Implementation plan: `docs/superpowers/plans/2026-03-11-rc-book-extraction-enhancement.md`
-- `dc6d12b` — Task 1: Add `side: Optional[str] = None` to BaseMapper + all 7 mappers
-- `0599840` — Task 2: RC book front/back mapper tests (20 tests)
-- `927874b` — Task 3: RC book mapper with front/back side support, auto-detection
-- `2d77997` — Tasks 4+6: Image quality (18 tests) + document authenticity (17 tests) — red phase
-- `0825c7d` — Tasks 5+7: Image quality assessor + document validator implementations — green phase
-- `c2170fb` — Tasks 8+11: Integration tests (5) + N-engine comparison tests (11) — red phase
-- `8619310` — Tasks 9+10: API schemas (ImageQuality, DocumentAuthenticity, side) + pipeline integration
-- `0f3dba6` — Task 12: N-engine comparator with backward compat
+- `5fcaff5` — Design spec
+- `35e605e` — Implementation plan
+- `dc6d12b` — Task 1: BaseMapper `side` parameter + all 7 mappers
+- `0599840` — Task 2: RC mapper tests (TDD red)
+- `927874b` — Task 3: RC mapper front/back implementation (green)
+- `2d77997` — Tasks 4+6: Image quality + doc auth tests (red)
+- `0825c7d` — Tasks 5+7: Quality + auth implementations (green)
+- `c2170fb` — Tasks 8+11: Integration + N-engine tests (red)
+- `8619310` — Tasks 9+10: Schemas + pipeline integration (green)
+- `0f3dba6` — Task 12: N-engine comparator
 - `5bc1d3a` — Task 13: `/compare/rc-book` endpoint
-- `a27e8ab` — Fix: RC book field alias ordering (discovered during integration testing)
-- **182 tests passing** — All tasks 1-14 complete
-
-**Implementation plan (15 tasks, 6 chunks):**
-1. BaseMapper interface + RC book mapper expansion (front/back/common fields)
-2. Image quality assessment module (`app/core/image_quality.py`)
-3. Document authenticity validator (`app/core/document_validator.py`)
-4. Schema updates + pipeline integration
-5. N-engine comparator + `/compare/rc-book` endpoint
-6. Final verification + deploy + live testing
+- `a27e8ab` — Fix: alias ordering bug
+- `8be53fb` — Phase 2: Gujarat RC format reclassification
+- `382b77d` — Phase 2: OCR noise tolerance + fallbacks
 
 ### 2026-02-19 — Initial Build
 
@@ -93,6 +144,7 @@ tests/          - pytest suite (93+ tests)
 - **CI/CD:** GitHub Actions — test on PR, build Docker on main push
 - **Engines available:** paddle, easyocr, tesseract (Google Vision not configured)
 - **Docker:** python:3.11-slim + OpenCV + Tesseract system deps
+- **Remotes:** `github` (kvivek1983/ocr2text) + `bitbucket` (ez_onewaycab/orc2text)
 
 ---
 
@@ -105,6 +157,16 @@ tests/          - pytest suite (93+ tests)
 - Smart cards have characteristic blue/green header bands
 - `registration_number` appears on both front and back — natural merge key
 - Older paper RCs will pass structural authenticity but fail visual checks (by design)
+- **Gujarat RC front** has chassis/engine numbers (other states have them on back)
+- **PaddleOCR** merges words without spaces on some images — engine limitation
+
+### Per-State RC Format Strategy
+- **Current approach:** Single mapper with broad alias lists handles all state variations
+- **Why it works:** Field labels across states are variations of the same terms (different abbreviations/ordering)
+- **When to add state-specific logic:** If two states use the same label for different fields, or layouts are radically incompatible
+- **Accumulation strategy:** Test with images from each state, add aliases as discovered
+- **States tested:** GJ (Gujarat), KA (Karnataka — fixture data)
+- **States pending:** MH, TN, DL, AP, UP, RJ, MP, etc.
 
 ### Quality Assessment Design
 - Layer A (image properties) is advisory only — never short-circuits pipeline
@@ -142,13 +204,13 @@ tests/          - pytest suite (93+ tests)
 | POST | `/extract/petrol-receipt` | Petrol receipt extraction |
 | POST | `/extract/odometer` | Odometer reading extraction |
 | POST | `/extract/fuel-pump-reading` | Fuel pump reading extraction |
-| POST | `/compare/rc-book` | Multi-engine comparison (planned) |
+| POST | `/compare/rc-book` | Multi-engine RC book comparison |
 
 ---
 
 ## Testing
 
 - **Framework:** pytest + pytest-asyncio + pytest-cov
-- **Current count:** 182 tests passing (all tasks complete)
-- **Run:** `pytest tests/ -v --tb=short`
+- **Current count:** 191 tests passing
+- **Run:** `python3 -m pytest tests/ -v --tb=short`
 - **Live testing:** `curl -X POST https://ocr2text-production.up.railway.app/extract/rc-book -H "Content-Type: application/json" -d '{"image_url": "<URL>", "side": "front"}'`
