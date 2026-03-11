@@ -434,6 +434,13 @@ class RCBookMapper(BaseMapper):
                         cleaned = self._clean_field_value(label, value)
                         return {"label": label, "value": cleaned}
 
+            # Special case: alias text IS also the value (e.g. "As per Fitness" for registration_validity)
+            # Only applies when the alias itself passes a strict field validator
+            if label == "registration_validity":
+                alias_as_value = alias.strip().title()
+                if "fitness" in alias_as_value.lower() or "as per" in alias_as_value.lower():
+                    return {"label": label, "value": alias_as_value}
+
             # Same-line failed or was rejected — look ahead up to 5 lines
             for offset in range(1, 6):
                 if i + offset >= len(lines):
