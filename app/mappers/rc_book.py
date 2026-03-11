@@ -137,7 +137,7 @@ BACK_MANDATORY = ["registration_number", "vehicle_make", "engine_number", "chass
 # Two alternatives: strict (letters-only middle) handles merged text better;
 # OCR-tolerant (alphanumeric middle) handles misreads but requires word boundary
 _REG_NUMBER_PATTERN = re.compile(
-    r"\b([A-Z]{2}\s*\d{1,2}\s*[A-Z]{1,3}\s*\d{3,4})(?=\d*[A-Za-z]|\b)"
+    r"\b([A-Z]{2}\s*\d{1,2}\s*[A-Z]{1,3}\s*\d{3,4})(?=\d+[-/]|\d*[A-Za-z]|\b)"
     r"|\b([A-Z]{2}\s*\d{1,2}\s*[A-Z0-9]{1,3}\s*\d{3,4})\b",
     re.IGNORECASE,
 )
@@ -149,6 +149,8 @@ _FUEL_TYPES = [
     "PETROLCNG", "PETROLLPG", "DIESELCNG",
     # OCR typos (G→O, G→6, etc.)
     "PETROLCNO", "PETROL/CNO",
+    # E20 ethanol blend variants (OCR garbled)
+    "PETROL(E20)/CNG", "PETROL(E20)CNG",
 ]
 
 
@@ -376,7 +378,11 @@ class RCBookMapper(BaseMapper):
             return True
 
         # Descriptor phrases in parentheses (e.g., "(In case of Individual Owner)")
-        if text_lower.startswith("(") and text_lower.endswith(")"):
+        stripped = text_lower.rstrip(".,;:")
+        if stripped.startswith("(") and stripped.endswith(")"):
+            return True
+        # "In case of" descriptor without parentheses
+        if "in case of" in text_lower or "in cse of" in text_lower:
             return True
 
         # Known field label prefixes — if the line starts with any of these,
@@ -387,6 +393,7 @@ class RCBookMapper(BaseMapper):
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
             "owncr", "ownername", "owncrname", "horse power", "bhp",
+            "carg", "card issue", "16suo",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
@@ -440,13 +447,28 @@ class RCBookMapper(BaseMapper):
 
     def _fallback_fuel_type(self, lines: List[str]) -> Optional[Dict[str, str]]:
         """Fallback: find fuel type by matching known fuel type values."""
+        # Pass 1: exact line match
         for line in lines:
             line_upper = line.strip().upper()
             for fuel in _FUEL_TYPES:
                 if fuel == line_upper or line_upper == fuel.replace("/", ""):
-                    # Normalize merged OCR text back to standard form
                     normalized = fuel if "/" in fuel else self._normalize_fuel(line_upper)
                     return {"label": "fuel_type", "value": normalized}
+        # Pass 2: regex extraction from merged/garbled lines
+        fuel_regex = re.compile(
+            r'(PETROL|DIESEL)\s*(?:[\(/]?E\d+.{0,2})?\s*[/\\]?\s*(CNG|LPG)',
+            re.IGNORECASE,
+        )
+        single_fuel = re.compile(r'\b(PETROL|DIESEL|CNG|LPG|ELECTRIC|HYBRID)\b', re.IGNORECASE)
+        for line in lines:
+            m = fuel_regex.search(line)
+            if m:
+                return {"label": "fuel_type", "value": f"{m.group(1).upper()}/{m.group(2).upper()}"}
+        # Pass 3: single fuel type anywhere in text
+        for line in lines:
+            m = single_fuel.search(line)
+            if m:
+                return {"label": "fuel_type", "value": m.group(1).upper()}
         return None
 
     @staticmethod
