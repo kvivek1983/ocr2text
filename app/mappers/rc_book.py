@@ -74,8 +74,11 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "ownername",
         # UP format ("OwName" merged OCR)
         "owname",
-        # GJ/TN format OCR typos ("Owier", "Owncr")
+        # GJ/TN format OCR typos ("Owier", "Owncr", "Ownor")
         "owier name", "owier",
+        "ownor name", "ownorname", "ownor",
+        # MH format OCR merge ("OwnerNarne" = Owner Name with 'rn'→'rn' merge)
+        "ownernarne", "ownernarme",
         # Short alias last (most greedy)
         "owner",
     ],
@@ -581,7 +584,9 @@ class RCBookMapper(BaseMapper):
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
-            "owncr", "ownername", "ownernamr", "owncrname", "ownrf", "owname", "owier", "horse power", "bhp",
+            "owncr", "ownername", "ownernamr", "owncrname", "ownrf", "owname", "owier", "ownor", "horse power", "bhp",
+            "cardissue", "card issue date",  # OCR merging of "Card Issue Date"
+            "sharat stage", "bharat stage",  # Emission norm values mistaken for owner_name
             "card ", "card tsw", "sertal",  # OCR garbling of "Card Issue Date" / "Serial"
             "wheet",  # OCR typo for "wheel" (e.g. "Wheet Base(mm)")
             "hsrp", "front.hsrp", "rear.hsrp",  # High Security Registration Plate labels
