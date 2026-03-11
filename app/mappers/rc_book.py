@@ -4,7 +4,11 @@ from typing import Dict, List, Optional, Set
 from .base import BaseMapper
 
 # Date pattern: DD-MM-YYYY, DD/MM/YYYY, MM-YYYY, etc.
-_DATE_PATTERN = re.compile(r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{1,2}[-/]\d{2,4}')
+_DATE_PATTERN = re.compile(
+    r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}'   # DD-MM-YYYY, DD/MM/YYYY
+    r'|\d{1,2}[-/]\d{2,4}'              # MM-YYYY
+    r'|\d{1,2}[A-Za-z]{3,9}[-/]?\d{4}' # 24Sep-2025, 24Sep2025
+)
 
 # Common fields — appear on both sides (varies by state), used as merge key
 COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
@@ -20,6 +24,8 @@ COMMON_FIELD_ALIASES: Dict[str, List[str]] = {
         "eng no", "eng. no",
         # OCR merged/period variants
         "engine/motor.no", "engine/motor.number",
+        # OCR merged (no space)
+        "engine/motorno",
     ],
     "chassis_number": [
         "chassis no", "chassis number", "ch no", "chasi no", "ch. no",
@@ -93,7 +99,7 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "no. of cylinders", "no of cyl", "cylinders", "noof cyl",
         "no.of cylinders",
     ],
-    "hypothecation": ["hypothecation", "financier", "financer", "hp", "hypothecated to"],
+    "hypothecation": ["hypothecation", "financier", "financer", "financler", "hp", "hypothecated to"],
     "insurance_validity": ["insurance upto", "insurance valid till", "ins. upto"],
     "standing_capacity": ["standing capacity"],
 }
@@ -116,8 +122,12 @@ BACK_MANDATORY = ["registration_number", "vehicle_make", "engine_number", "chass
 
 # Indian vehicle registration number pattern (e.g., GJ27TG4232, KA01AB1234)
 # Allow alphanumeric in middle segment to handle OCR misreads (e.g., T→1)
+# Two alternatives: strict (letters-only middle) handles merged text better;
+# OCR-tolerant (alphanumeric middle) handles misreads but requires word boundary
 _REG_NUMBER_PATTERN = re.compile(
-    r"\b([A-Z]{2}\s*\d{1,2}\s*[A-Z0-9]{0,3}\s*\d{3,5})\b", re.IGNORECASE
+    r"\b([A-Z]{2}\s*\d{1,2}\s*[A-Z]{1,3}\s*\d{3,4})(?=\d*[A-Za-z]|\b)"
+    r"|\b([A-Z]{2}\s*\d{1,2}\s*[A-Z0-9]{1,3}\s*\d{3,4})\b",
+    re.IGNORECASE,
 )
 
 # Known fuel types for fallback extraction
@@ -262,7 +272,7 @@ class RCBookMapper(BaseMapper):
         if label in self._REG_NUMBER_FIELDS:
             match = _REG_NUMBER_PATTERN.search(value)
             if match:
-                return match.group(1).replace(" ", "")
+                return (match.group(1) or match.group(2)).replace(" ", "")
         if label in self._DATE_FIELDS:
             match = _DATE_PATTERN.search(value)
             if match:
@@ -355,7 +365,7 @@ class RCBookMapper(BaseMapper):
             "regn", "reg ", "regr", "date of", "valid", "upto", "authority",
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
-            "hypothec", "insurance", "registration", "registralion", "emission", "cubic",
+            "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
             "unladen", "wheel", "month", "standing", "body type", "vehicle",
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
@@ -382,7 +392,7 @@ class RCBookMapper(BaseMapper):
         for line in lines:
             match = _REG_NUMBER_PATTERN.search(line)
             if match:
-                value = match.group(1).replace(" ", "")
+                value = (match.group(1) or match.group(2)).replace(" ", "")
                 # Validate: Indian reg numbers are 8-12 chars
                 if 8 <= len(value) <= 12:
                     return {"label": "registration_number", "value": value}

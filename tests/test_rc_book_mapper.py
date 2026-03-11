@@ -506,3 +506,47 @@ DONNGARI PADAThane,MH400615"""
         assert field_dict["owner_name"] == "RISHIKA TOURS AND TRAVELS"
         # Fuel type
         assert "fuel_type" in field_dict
+
+    def test_mp_front_merged_reg_date(self):
+        """MP format: reg number and date merged (MP09AT907824Sep-2025)."""
+        text = """Indian Union Vehicle Registration Certificate
+Government of Madhya Pradesh
+Regn No
+MP09AT907824Sep-2025
+Owner Name
+RAJESH PATEL
+Fuel Type: PETROLCNG
+Engine/MotorNo
+K10CN1234567
+Chassis No
+MA3FJEB1S00123456"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "registration_number" in field_dict
+        assert field_dict["registration_number"] == "MP09AT9078"
+        assert "engine_number" in field_dict
+        assert "K10CN1234567" in field_dict["engine_number"]
+
+    def test_mp_back_financler_alias(self):
+        """MP format: OCR reads 'Financier' as 'Financler'."""
+        text = """Registration No: MP09AT9078
+Maker's Name: MARUTI SUZUKI
+Model Name: WAGON R
+Financler
+HDFC BANK LIMITED"""
+        fields = self.mapper.map_fields(text, side="back")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "hypothecation" in field_dict
+        assert "HDFC BANK" in field_dict["hypothecation"]
+
+    def test_date_pattern_ddmmmyyyy(self):
+        """Date pattern matches '24Sep-2025' format."""
+        text = """Date of Registration
+24Sep-2025
+Owner Name: RAJESH KUMAR
+Regn No: MP09AT9078
+Fuel Type: PETROL"""
+        fields = self.mapper.map_fields(text, side="front")
+        field_dict = {f["label"]: f["value"] for f in fields}
+        assert "registration_date" in field_dict
+        assert "24Sep-2025" in field_dict["registration_date"]
