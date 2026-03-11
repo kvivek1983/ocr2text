@@ -72,6 +72,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "qwner name", "qwnername",
         # KA format
         "ownername",
+        # UP format ("OwName" merged OCR)
+        "owname",
         # Short alias last (most greedy)
         "owner",
     ],
@@ -571,7 +573,7 @@ class RCBookMapper(BaseMapper):
             "in case of", "norms", "fitness", "owner", "fuel", "address",
             "maker", "model", "chassis", "engine", "seating", "financier",
             "hypothec", "insurance", "registration", "registralion", "emission", "cubic", "financler",
-            "owncr", "ownername", "ownernamr", "owncrname", "ownrf", "horse power", "bhp",
+            "owncr", "ownername", "ownernamr", "owncrname", "ownrf", "owname", "horse power", "bhp",
             "card ", "card tsw", "sertal",  # OCR garbling of "Card Issue Date" / "Serial"
             "wheet",  # OCR typo for "wheel" (e.g. "Wheet Base(mm)")
             "hsrp", "front.hsrp", "rear.hsrp",  # High Security Registration Plate labels
