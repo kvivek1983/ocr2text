@@ -47,35 +47,106 @@ tests/          - pytest suite (191+ tests)
 6. OCR noise tolerance (typo-tolerant aliases, regex fallbacks, multi-line extraction)
 
 **Current state (2026-03-12):**
-- Phase 3 complete: 19-RC batch hardening across multiple states/formats
+- Phase 5 complete: 51-RC batch hardening (RC_Training_Data_99to150.csv)
 - 199 tests passing
-- Deployed to production (6 commits pushed)
+- Deployed to production (multiple commits pushed)
 
-**Formats tested (Phase 3):**
+**Formats tested (Phase 3 + Phase 4 + Phase 5):**
 - MH (Maharashtra) physical RC smart card — front/back ✓ robust
 - GJ (Gujarat) RC smart card — partially working (garbled OCR in some images)
 - KA (Karnataka) old paper booklet — back fields extracted; front too garbled
 - PB (Punjab) mParivahan virtual RC — 4/4 front ✓
 - MP (Madhya Pradesh) RC — partial (reg number only on back)
 - mParivahan digital RC (MH) — partial (fuel/date not on front side)
+- UP (Uttar Pradesh) paper RC — partial (garbled OCR, "OwName"/"Ownrf" label typos)
+- TN (Tamil Nadu) RC smart card — ✓ (qwner name alias)
+- HR (Haryana) paper RC — very garbled; reg number only
+- WB (West Bengal) RC smart card — ✓ front+back
+- HONDA format RC (GJ) — ✓
 
-**Score on 19-RC batch (RC_Training_Data_20to40.csv):**
-- 6/19 RCs: both front+back fully passing
-- 5/19 RCs: data issues (swapped sides, wrong document, inaccessible image)
-- 3/19 RCs: OCR quality too poor (UP/KA paper, GJ garbled)
-- 5/19 RCs: partial extraction (format limitations, OCR truncation)
+**Score on 51-RC batch (RC_Training_Data_99to150.csv):**
+- ~23/51 RCs: both front+back fully passing
+- ~5/51 RCs: data issues (swapped sides, empty/blank images)
+- ~8/51 RCs: OCR quality too poor (HR/UP/KA paper, severely garbled images)
+- ~15/51 RCs: partial extraction (format limitations, OCR truncation, merged labels+values)
 
 **Known limitations:**
 - PaddleOCR merges words without spaces — OCR engine limitation
 - OCR sometimes merges adjacent label columns — causes extraction failures
 - mParivahan digital RC: fuel_type/registration_date only on "back" URL, not front
 - MH back: engine/chassis not in back OCR (they're on front) — BACK_MANDATORY reduced to 2
-- Garbled UP/KA paper RCs: OCR output too noisy to extract reliably
+- Garbled UP/KA/HR paper RCs: OCR output too noisy to extract reliably
 - `vehicle_make` missing when "Maker's Name" label absent from OCR output (garbled images)
+- UP paper RC fuel_type often absent from OCR output (not extractable)
+- OCR 'O'→'0' digit confusion in reg numbers (e.g. "GJO1MT0859") — fails state code validation
+- Dates merged with reg numbers on same OCR line — unfixable without risking false positives
 
 ---
 
 ## Changelog
+
+### 2026-03-12 — RC SmartExtract: 51-RC Batch Hardening (Phase 5)
+
+**What happened:** Iterated through 51 new RC images (RC_Training_Data_99to150.csv) in 11 batches of 5. Each batch: hit production API → analyze raw OCR → fix mapper → push → redeploy → verify.
+
+**Commits:**
+- `d4d1c1a` — Batch 1-6: fuel typo aliases (ftel/fues/fue), owier owner alias, digit-prefix vehicle_make guard, ownernarne/ownor owner aliases, cardissue/bharat label guards, makor vehicle alias, vohick/vohide label guards, laker/slash-maker vehicle aliases, keg/setial label guards, vhic label guard, TG state code, regd.owner alias, dot-date pattern, PETROLONG fuel, flnancer label guard
+- `c6db555` — Batch 7: makers-name alias (no apostrophe), dot-prefix digit guard for vehicle_make
+
+**New format support added:**
+- HR (Haryana) paper RC — reg number extractable; other fields too garbled
+- WB (West Bengal) RC smart card — front+back working
+- GJ RC with "Makers Name;" (no apostrophe) label format
+- Dot-separator dates (DD.MM.YYYY)
+- TG (Telangana) state code validation
+- "regd. owner" / "regd owner" aliases for TG/AP formats
+
+**Score summary:**
+- RC1-5: ~3 fully passing
+- RC6-10: ~3 passing
+- RC11-15: ~3 passing
+- RC16-20: ~3 passing
+- RC21-25: ~4 passing
+- RC26-30: ~3 passing
+- RC31-35: ~4 passing (RC34 improved with ownerna alias)
+- RC36-40: ~1 fully passing (RC38 ✓; RC39-40 UP/HR garbled)
+- RC41-45: ~1 fully passing (RC42 ✓; RC43/45 garbled)
+- RC46-50: ~3 fully passing (RC46/48/49 ✓)
+- RC51: 0 (garbled GJ RC with merged dates)
+
+**Data quality observations:**
+- ~8/51 severely garbled (HR/UP paper RCs, some GJ)
+- ~5/51 data issues (blank images, inverted layouts)
+- OCR 'O'→'0' confusion causes reg number extraction failures on some GJ RCs
+
+### 2026-03-12 — RC SmartExtract: 40-RC Batch Hardening (Phase 4)
+
+**What happened:** Iterated through 40 new RC images (RC_Training_Data_40to99.csv) in 8 batches of 5. Each batch: hit production API → analyze raw OCR → fix mapper → push → redeploy → verify.
+
+**Commits:**
+- `8974067` — Batch 5+6: qwner-name (TN format Q→O), PETRQL fuel, semicolon/colon strip, dateofregn alias, ownernamr label guard, `_STRICT_DATE_PATTERN`, VIN min length 15, `Scp` month alias, multi-word vehicle_make score bonus, word boundary guard `(?!\w)` for owner alias
+- `dd5a697` — Batch 7: gross/weight label guards (prevents vehicle_make capturing "Gross Combination Weight"), ownrf owner_name alias (UP paper RC)
+- `f7dc039` — Batch 8: owname alias for UP format OCR-merged "OwName" owner label
+
+**New format support added:**
+- UP (Uttar Pradesh) paper RC — "OwName", "Ownrf Name" label typos; highly garbled OCR
+- TN (Tamil Nadu) RC — "qwner name" (Q→O OCR typo)
+- GJ (Gujarat) RC improvements — PETRQL fuel typo
+
+**Score summary:**
+- RC1-5: 3/5 fully passing, 1 garbled, 1 partial
+- RC6-10: 3/5 passing, 2 swapped/garbled
+- RC11-15: 2/5 passing, 2 garbled, 1 swapped
+- RC16-20: 3/5 passing, 1 garbled, 1 data issue
+- RC21-25: 4/5 fully passing, 1 partial
+- RC26-30: 3/5 passing, 1 swapped, 1 garbled
+- RC31-35: 4/5 passing (RC31F now 4/4 with ownrf fix), RC35 garbled
+- RC36-40: 4/5 passing (RC36-38 all 4/4+2/2 ✓), RC39 garbled, RC40 3/4 front
+
+**Data quality observations:**
+- ~5/40 RCs had swapped or inaccessible images
+- ~5/40 had severely garbled OCR (UP paper, old KA/GJ formats)
+- UP paper RCs consistently extract owner but miss fuel_type (not in OCR output)
 
 ### 2026-03-12 — RC SmartExtract: 19-RC Batch Hardening (Phase 3)
 
