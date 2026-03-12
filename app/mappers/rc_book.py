@@ -599,7 +599,7 @@ class RCBookMapper(BaseMapper):
             "individual", "asper",
             "'s.name", "'sname", "s.name",
             "unladen", "wheel", "month", "standing", "body type",
-            "vehicle", "vehide", "vehcle", "vehile", "vohick", "vohide",  # OCR typos for "vehicle"
+            "vehicle", "vehide", "vehcle", "vehile", "vohick", "vohide", "vhic",  # OCR typos for "vehicle"
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
             "registration authority", "registralion authority", "registratlon authority",
