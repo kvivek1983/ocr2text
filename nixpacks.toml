@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["libGL", "glib", "tesseract"]
+
+[phases.install]
+cmds = [
+  "pip install -r requirements.txt",
+  "pip uninstall -y opencv-python || true",
+  "pip install opencv-python-headless==4.10.0.84"
+]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
