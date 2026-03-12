@@ -47,6 +47,7 @@ tests/          - pytest suite (191+ tests)
 6. OCR noise tolerance (typo-tolerant aliases, regex fallbacks, multi-line extraction)
 
 **Current state (2026-03-12):**
+- Phase 8 complete: production RC validation API with per-side upload, DB storage, and human review queue
 - Phase 7 complete: 31-RC batch hardening (RC_Training_Data_170to200.csv)
 - 199 tests passing
 - Deployed to production (multiple commits pushed)
@@ -84,6 +85,129 @@ tests/          - pytest suite (191+ tests)
 ---
 
 ## Changelog
+
+### 2026-03-12 — RC SmartExtract: Production Validation API (Phase 8)
+
+**What happened:** Built a production quality gate for RC book uploads, replacing ad-hoc `/extract/rc-book` calls with a structured per-side upload flow.
+
+**Commit:** `98171e9` — per-side RC validation API with review queue
+
+**Design:**
+- Frontend uploads front and back separately (not in a single call)
+- Each upload goes to `POST /validate/rc-book` with `{ image_url, side, driver_id }`
+- Engine hardcoded to PaddleOCR (no `engine` param exposed)
+- Front upload → creates new `RCValidation` DB record with `overall_status = "pending_back"`
+- Back upload → finds pending front record by `driver_id`, merges fields, computes final status
+- DB operations are best-effort — API returns extraction result even if DB is unavailable
+
+**New DB model — `RCValidation`:**
+- Per-side URLs, quality scores, issues, extracted fields
+- `overall_status`: `pending_back` → `accepted` / `needs_review` / `rejected`
+- `merged_fields` + `registration_number` populated after back upload
+- `requires_review`, `reviewed_at`, `reviewed_by`, `review_notes` for human review workflow
+- Tables auto-created at startup via `Base.metadata.create_all()`
+
+**New endpoints:**
+
+#### `POST /validate/rc-book`
+Upload one side of an RC book. Call twice — once for front, once for back.
+
+**Request:**
+```json
+{
+  "image_url": "https://...",
+  "side": "front",           // "front" | "back"
+  "driver_id": "DRV123"      // links front and back uploads
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "validation_id": "uuid",
+  "side": "front",
+  "overall_status": "pending_back",  // pending_back | accepted | needs_review | rejected
+  "requires_review": false,
+  "result": {
+    "quality_score": 0.72,
+    "is_acceptable": true,
+    "extracted_fields": { "registration_number": "MH12AB1234", "owner_name": "John Doe", ... },
+    "missing_mandatory": [],
+    "issues": [],
+    "blur_score": 0.85,
+    "brightness_score": 0.90,
+    "resolution_score": 0.70
+  },
+  "merged_fields": {},       // populated only after back is submitted
+  "issues": [],              // combined [FRONT]/[BACK] prefixed issues after both sides
+  "message": "Front image received. Please upload the back of the RC book."
+}
+```
+
+**Status flow:**
+- After front: `overall_status = "pending_back"`
+- After back: `accepted` (all mandatory fields present, both sides acceptable), `needs_review` (quality OK but some fields missing), `rejected` (quality check failed)
+
+---
+
+#### `GET /validate/rc-book/review-queue`
+List all RC validation records flagged for human review.
+
+**Query params:** `limit` (default 50), `offset` (default 0), `status` (optional filter: `needs_review` / `rejected`)
+
+**Response:**
+```json
+{
+  "success": true,
+  "total": 12,
+  "items": [
+    {
+      "validation_id": "uuid",
+      "created_at": "2026-03-12T10:00:00",
+      "driver_id": "DRV123",
+      "overall_status": "needs_review",
+      "front_url": "https://...",
+      "back_url": "https://...",
+      "registration_number": "MH12AB1234",
+      "front_quality_score": 0.72,
+      "back_quality_score": 0.65,
+      "front_fields": { "registration_number": "MH12AB1234", "owner_name": "John Doe", ... },
+      "back_fields": { "vehicle_make": "HONDA", ... },
+      "front_issues": ["Missing mandatory: fuel_type"],
+      "back_issues": [],
+      "merged_fields": { "registration_number": "MH12AB1234", "owner_name": "John Doe", "vehicle_make": "HONDA", ... },
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "review_notes": null
+    }
+  ]
+}
+```
+
+---
+
+#### `PATCH /validate/rc-book/{validation_id}/review`
+Mark a flagged record as reviewed after human inspection.
+
+**Request:**
+```json
+{
+  "reviewed_by": "admin@company.com",
+  "review_notes": "Verified against physical document — all fields correct."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "validation_id": "uuid",
+  "reviewed_at": "2026-03-12T11:30:00"
+}
+```
+
+---
 
 ### 2026-03-12 — RC SmartExtract: 31-RC Batch Hardening (Phase 7)
 
@@ -359,12 +483,15 @@ tests/          - pytest suite (191+ tests)
 | POST | `/extract/odometer` | Odometer reading extraction |
 | POST | `/extract/fuel-pump-reading` | Fuel pump reading extraction |
 | POST | `/compare/rc-book` | Multi-engine RC book comparison |
+| POST | `/validate/rc-book` | Per-side RC upload — quality feedback + DB storage |
+| GET | `/validate/rc-book/review-queue` | List records requiring human review |
+| PATCH | `/validate/rc-book/{id}/review` | Mark a validation record as reviewed |
 
 ---
 
 ## Testing
 
 - **Framework:** pytest + pytest-asyncio + pytest-cov
-- **Current count:** 191 tests passing
+- **Current count:** 199 tests passing
 - **Run:** `python3 -m pytest tests/ -v --tb=short`
 - **Live testing:** `curl -X POST https://ocr2text-production.up.railway.app/extract/rc-book -H "Content-Type: application/json" -d '{"image_url": "<URL>", "side": "front"}'`

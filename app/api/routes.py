@@ -352,9 +352,16 @@ def get_review_queue(
                 front_url=r.front_url,
                 back_url=r.back_url,
                 registration_number=r.registration_number,
+                front_quality_score=r.front_quality_score,
+                back_quality_score=r.back_quality_score,
+                front_fields=r.front_fields or {},
+                back_fields=r.back_fields or {},
                 front_issues=r.front_issues or [],
                 back_issues=r.back_issues or [],
                 merged_fields=r.merged_fields or {},
+                reviewed_at=r.reviewed_at.isoformat() if r.reviewed_at else None,
+                reviewed_by=r.reviewed_by,
+                review_notes=r.review_notes,
             )
             for r in items
         ],

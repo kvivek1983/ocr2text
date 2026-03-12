@@ -125,9 +125,19 @@ class ReviewQueueItem(BaseModel):
     front_url: Optional[str]
     back_url: Optional[str]
     registration_number: Optional[str]
+    # Per-side quality scores
+    front_quality_score: Optional[float] = None
+    back_quality_score: Optional[float] = None
+    # Per-side extracted fields
+    front_fields: Dict[str, str] = {}
+    back_fields: Dict[str, str] = {}
     front_issues: List[str] = []
     back_issues: List[str] = []
     merged_fields: Dict[str, str] = {}
+    # Review workflow
+    reviewed_at: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    review_notes: Optional[str] = None
 
 
 class ReviewQueueResponse(BaseModel):
