@@ -35,35 +35,42 @@ class Extraction(Base):
 
 
 class RCValidation(Base):
-    """Stores RC book validation results for production quality review."""
+    """
+    Stores RC book validation results for production quality review.
+    Front and back are uploaded separately — linked by driver_id.
+    A record is created on front upload and updated when back is submitted.
+    """
     __tablename__ = "rc_validations"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Input identifiers
     driver_id = Column(String(100), nullable=True, index=True)
-    front_url = Column(Text, nullable=False)
-    back_url = Column(Text, nullable=False)
 
-    # Overall outcome
-    overall_status = Column(String(20), nullable=False, index=True)
-    # "accepted" | "needs_review" | "rejected"
+    # URLs — front set on creation, back set when submitted
+    front_url = Column(Text, nullable=True)
+    back_url = Column(Text, nullable=True)
+
+    # Per-upload status
+    # "pending_back" | "accepted" | "needs_review" | "rejected"
+    overall_status = Column(String(20), nullable=False, default="pending_back", index=True)
 
     # Per-side quality scores
     front_quality_score = Column(Float, nullable=True)
     back_quality_score = Column(Float, nullable=True)
 
     # Issues per side (lists of strings)
-    front_issues = Column(JSON, nullable=True)   # e.g. ["Blurry image", "Missing fuel_type"]
+    front_issues = Column(JSON, nullable=True)
     back_issues = Column(JSON, nullable=True)
 
     # Extracted fields per side
     front_fields = Column(JSON, nullable=True)   # {label: value, ...}
     back_fields = Column(JSON, nullable=True)
 
-    # Merged key fields (for quick lookup)
-    merged_fields = Column(JSON, nullable=True)  # best-effort merged {label: value, ...}
+    # Merged key fields (populated after back is submitted)
+    merged_fields = Column(JSON, nullable=True)
     registration_number = Column(String(20), nullable=True, index=True)
 
     # Review workflow

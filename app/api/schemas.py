@@ -78,10 +78,17 @@ class ErrorResponse(BaseModel):
 # --- RC Validation (production quality gate) ---
 
 class RCValidationRequest(BaseModel):
-    front_url: str
-    back_url: str
-    driver_id: Optional[str] = None
-    engine: str = "paddle"
+    """Single-side RC upload. Front creates a new record; back updates it."""
+    image_url: str
+    side: str                     # "front" | "back"
+    driver_id: str                # required — links front and back uploads
+
+    @field_validator("side")
+    @classmethod
+    def validate_side(cls, v):
+        if v not in ("front", "back"):
+            raise ValueError("side must be 'front' or 'back'")
+        return v
 
 
 class RCSideResult(BaseModel):
@@ -91,7 +98,6 @@ class RCSideResult(BaseModel):
     extracted_fields: Dict[str, str] = {}
     missing_mandatory: List[str] = []
     issues: List[str] = []
-    # Image property scores
     blur_score: float = 0.0
     brightness_score: float = 0.0
     resolution_score: float = 0.0
@@ -100,12 +106,14 @@ class RCSideResult(BaseModel):
 class RCValidationResponse(BaseModel):
     success: bool
     validation_id: str
-    overall_status: str           # "accepted" | "needs_review" | "rejected"
+    side: str                     # which side was just uploaded
+    # "pending_back" after front upload; final status after back upload
+    overall_status: str
     requires_review: bool
-    front: RCSideResult
-    back: RCSideResult
+    result: RCSideResult          # result for the uploaded side
+    # Only populated after back is submitted:
     merged_fields: Dict[str, str] = {}
-    issues: List[str] = []        # combined issues across both sides
+    issues: List[str] = []
     message: str = ""
 
 
@@ -114,8 +122,8 @@ class ReviewQueueItem(BaseModel):
     created_at: str
     driver_id: Optional[str]
     overall_status: str
-    front_url: str
-    back_url: str
+    front_url: Optional[str]
+    back_url: Optional[str]
     registration_number: Optional[str]
     front_issues: List[str] = []
     back_issues: List[str] = []

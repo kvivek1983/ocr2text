@@ -183,110 +183,148 @@ router.post("/extract/fuel-pump-reading", response_model=ExtractionResponse)(
 @router.post("/validate/rc-book", response_model=RCValidationResponse)
 def validate_rc_book(request: RCValidationRequest, db: Session = Depends(get_db)):
     """
-    Production quality gate for RC book uploads.
-    Extracts both sides, assesses image quality, and stores results for review.
+    Production quality gate for RC book uploads — one side at a time.
+
+    Front upload  → creates a new validation record, returns front quality result.
+    Back upload   → updates existing record (matched by driver_id), computes final status.
+    Both calls return a validation_id the client can use to track the record.
     """
-    engine = request.engine if request.engine != "auto" else settings.DEFAULT_ENGINE
-
-    def _extract_side(url: str, side: str) -> dict:
-        try:
-            image_bytes = fetch_image_url(url)
-            return extraction_service.extract(
-                image_bytes=image_bytes,
-                engine=engine,
-                document_type="rc_book",
-                include_raw_text=False,
-                side=side,
-            )
-        except Exception as e:
-            return {
-                "success": False,
-                "fields": [],
-                "image_quality": None,
-                "document_authenticity": None,
-                "error": str(e),
-            }
-
-    def _build_side_result(result: dict, side: str) -> RCSideResult:
-        fields = {f["label"]: f["value"] for f in result.get("fields", [])}
-        iq = result.get("image_quality") or {}
-        issues: list[str] = list(iq.get("feedback", []))
-        if not result.get("success"):
-            issues.append(f"Extraction failed: {result.get('error', 'unknown error')}")
-        da = result.get("document_authenticity") or {}
-        if da and not da.get("is_authentic", True):
-            issues.append("Document authenticity check failed")
-        return RCSideResult(
-            quality_score=iq.get("overall_score", 0.0),
-            is_acceptable=iq.get("is_acceptable", False) if result.get("success") else False,
-            extracted_fields=fields,
-            missing_mandatory=iq.get("missing_mandatory", []),
-            issues=issues,
-            blur_score=iq.get("blur_score", 0.0),
-            brightness_score=iq.get("brightness_score", 0.0),
-            resolution_score=iq.get("resolution_score", 0.0),
-        )
-
-    front_result = _extract_side(request.front_url, "front")
-    back_result = _extract_side(request.back_url, "back")
-
-    front = _build_side_result(front_result, "front")
-    back = _build_side_result(back_result, "back")
-
-    # Merge fields — front takes precedence; registration_number must match
-    merged = {**back.extracted_fields, **front.extracted_fields}
-    reg_number = merged.get("registration_number")
-
-    # Determine overall status
-    all_issues = [f"[FRONT] {i}" for i in front.issues] + [f"[BACK] {i}" for i in back.issues]
-    front_mandatory_ok = len(front.missing_mandatory) == 0
-    back_mandatory_ok = len(back.missing_mandatory) == 0
-
-    if not front.is_acceptable or not back.is_acceptable:
-        overall_status = "rejected"
-        requires_review = True
-        message = "One or more images failed quality check. Please re-upload clearer photos."
-    elif front_mandatory_ok and back_mandatory_ok:
-        overall_status = "accepted"
-        requires_review = False
-        message = "RC book images accepted. All mandatory fields extracted successfully."
-    else:
-        overall_status = "needs_review"
-        requires_review = True
-        missing = front.missing_mandatory + back.missing_mandatory
-        message = f"Extraction incomplete. Missing fields: {', '.join(missing)}."
-
-    # Persist to DB (best-effort — don't fail the API if DB is unavailable)
-    validation_id = ""
+    # Extract the uploaded side
     try:
-        repo = RCValidationRepository(db)
-        record = repo.create(
-            driver_id=request.driver_id,
-            front_url=request.front_url,
-            back_url=request.back_url,
-            overall_status=overall_status,
-            front_quality_score=front.quality_score,
-            back_quality_score=back.quality_score,
-            front_issues=front.issues,
-            back_issues=back.issues,
-            front_fields=front.extracted_fields,
-            back_fields=back.extracted_fields,
-            merged_fields=merged,
-            registration_number=reg_number,
-            requires_review=requires_review,
+        image_bytes = fetch_image_url(request.image_url)
+        result = extraction_service.extract(
+            image_bytes=image_bytes,
+            engine="paddle",
+            document_type="rc_book",
+            include_raw_text=False,
+            side=request.side,
         )
-        validation_id = record.id
+    except Exception as e:
+        result = {"success": False, "fields": [], "image_quality": None,
+                  "document_authenticity": None, "error": str(e)}
+
+    # Build side result
+    fields = {f["label"]: f["value"] for f in result.get("fields", [])}
+    iq = result.get("image_quality") or {}
+    issues: list = list(iq.get("feedback", []))
+    if not result.get("success"):
+        issues.append(f"Extraction failed: {result.get('error', 'unknown error')}")
+    if result.get("document_authenticity") and not result["document_authenticity"].get("is_authentic", True):
+        issues.append("Document authenticity check failed")
+
+    side_result = RCSideResult(
+        quality_score=iq.get("overall_score", 0.0),
+        is_acceptable=iq.get("is_acceptable", False) if result.get("success") else False,
+        extracted_fields=fields,
+        missing_mandatory=iq.get("missing_mandatory", []),
+        issues=issues,
+        blur_score=iq.get("blur_score", 0.0),
+        brightness_score=iq.get("brightness_score", 0.0),
+        resolution_score=iq.get("resolution_score", 0.0),
+    )
+
+    repo = RCValidationRepository(db)
+    validation_id = ""
+    overall_status = "pending_back"
+    requires_review = False
+    merged_fields: dict = {}
+    all_issues: list = []
+    message = ""
+
+    try:
+        if request.side == "front":
+            # Create new record — back not yet uploaded
+            record = repo.create(
+                driver_id=request.driver_id,
+                front_url=request.image_url,
+                overall_status="pending_back",
+                front_quality_score=side_result.quality_score,
+                front_issues=issues,
+                front_fields=fields,
+                requires_review=False,
+            )
+            validation_id = record.id
+            overall_status = "pending_back"
+            message = (
+                "Front image received. Please upload the back of the RC book."
+                if side_result.is_acceptable
+                else "Front image quality is poor — please re-upload a clearer photo before continuing."
+            )
+
+        else:  # back
+            # Find the pending record for this driver
+            record = repo.get_pending_back_for_driver(request.driver_id)
+            if not record:
+                # No front on file — create a back-only record (edge case)
+                record = repo.create(
+                    driver_id=request.driver_id,
+                    back_url=request.image_url,
+                    overall_status="needs_review",
+                    back_quality_score=side_result.quality_score,
+                    back_issues=issues,
+                    back_fields=fields,
+                    requires_review=True,
+                )
+                validation_id = record.id
+                overall_status = "needs_review"
+                message = "Back received but no front image on record. Please upload the front."
+            else:
+                # Merge and compute final status
+                front_fields = record.front_fields or {}
+                merged_fields = {**fields, **front_fields}  # front takes precedence
+                reg_number = merged_fields.get("registration_number")
+                all_issues = (
+                    [f"[FRONT] {i}" for i in (record.front_issues or [])]
+                    + [f"[BACK] {i}" for i in issues]
+                )
+                front_acceptable = (record.front_quality_score or 0) >= 0.3 and not (record.front_issues or [])
+                # Use is_acceptable flag stored in front_issues being empty as proxy;
+                # simpler: re-derive from score thresholds
+                front_ok = (record.front_quality_score or 0.0) > 0.0 and len(record.front_issues or []) == 0
+                back_ok = side_result.is_acceptable and len(side_result.missing_mandatory) == 0
+                front_complete = len([i for i in (record.front_issues or []) if "mandatory" in i.lower()]) == 0
+
+                if not side_result.is_acceptable or (record.front_quality_score or 0) == 0.0:
+                    overall_status = "rejected"
+                    requires_review = True
+                    message = "One or more images failed quality check. Please re-upload clearer photos."
+                elif len(side_result.missing_mandatory) == 0 and front_complete:
+                    overall_status = "accepted"
+                    requires_review = False
+                    message = "RC book accepted. All mandatory fields extracted successfully."
+                else:
+                    overall_status = "needs_review"
+                    requires_review = True
+                    missing = (
+                        [i for i in (record.front_issues or []) if "mandatory" in i.lower()]
+                        + side_result.missing_mandatory
+                    )
+                    message = f"Extraction incomplete — flagged for review. Missing: {', '.join(side_result.missing_mandatory) or 'see issues'}."
+
+                record = repo.update(
+                    record,
+                    back_url=request.image_url,
+                    overall_status=overall_status,
+                    back_quality_score=side_result.quality_score,
+                    back_issues=issues,
+                    back_fields=fields,
+                    merged_fields=merged_fields,
+                    registration_number=reg_number,
+                    requires_review=requires_review,
+                )
+                validation_id = record.id
+
     except Exception:
         pass  # DB unavailable — still return extraction result
 
     return RCValidationResponse(
         success=True,
         validation_id=validation_id,
+        side=request.side,
         overall_status=overall_status,
         requires_review=requires_review,
-        front=front,
-        back=back,
-        merged_fields=merged,
+        result=side_result,
+        merged_fields=merged_fields,
         issues=all_issues,
         message=message,
     )

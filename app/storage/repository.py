@@ -50,6 +50,26 @@ class RCValidationRepository:
             .first()
         )
 
+    def get_pending_back_for_driver(self, driver_id: str) -> Optional[RCValidation]:
+        """Find the most recent front-only record for a driver awaiting back upload."""
+        return (
+            self.session.query(RCValidation)
+            .filter(
+                RCValidation.driver_id == driver_id,
+                RCValidation.overall_status == "pending_back",
+            )
+            .order_by(RCValidation.created_at.desc())
+            .first()
+        )
+
+    def update(self, record: RCValidation, **kwargs) -> RCValidation:
+        for key, value in kwargs.items():
+            setattr(record, key, value)
+        record.updated_at = datetime.utcnow()
+        self.session.commit()
+        self.session.refresh(record)
+        return record
+
     def get_review_queue(
         self,
         limit: int = 50,
