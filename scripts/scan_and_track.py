@@ -83,11 +83,14 @@ def bucket_key(state_code: str) -> str:
     return "TS" if state_code == "TG" else state_code
 
 
+_api_base = API_BASE
+
+
 def extract_side(image_url: str, side: str, row_index: int) -> dict:
     """Call /extract/rc-book and return parsed result."""
     try:
         resp = httpx.post(
-            f"{API_BASE}/extract/rc-book",
+            f"{_api_base}/extract/rc-book",
             json={"image_url": image_url, "side": side, "include_raw_text": False},
             timeout=REQUEST_TIMEOUT,
         )
@@ -146,8 +149,8 @@ def main():
     parser.add_argument("--api", default=API_BASE, help="API base URL")
     args = parser.parse_args()
 
-    global API_BASE
-    API_BASE = args.api.rstrip("/")
+    global _api_base
+    _api_base = args.api.rstrip("/")
 
     # Load all rows from all CSVs
     all_rows = []
@@ -157,12 +160,30 @@ def main():
             print(f"Warning: {path} not found, skipping")
             continue
         with open(path) as f:
-            reader = csv.DictReader(f)
+            reader = csv.reader(f)
+            headers = [h.strip().lower() for h in next(reader)]
+
+            # Format A: "Front RC URL", "Back RC URL" (training data)
+            # Format B: driver_id, "front", front_url, "back", back_url (rc_book_urls)
+            if "front rc url" in headers or "back rc url" in headers:
+                # Format A
+                front_idx = next((i for i, h in enumerate(headers) if "front" in h and "url" in h), None)
+                back_idx = next((i for i, h in enumerate(headers) if "back" in h and "url" in h), None)
+                driver_idx = None
+            else:
+                # Format B: driver_id, _, front_url, _, back_url
+                driver_idx = 0
+                front_idx = 2
+                back_idx = 4
+
             for row in reader:
-                front = row.get("Front RC URL", "").strip()
-                back = row.get("Back RC URL", "").strip()
+                if len(row) <= max(filter(None, [front_idx, back_idx])):
+                    continue
+                front = row[front_idx].strip() if front_idx is not None else ""
+                back = row[back_idx].strip() if back_idx is not None else ""
+                driver_id = row[driver_idx].strip() if driver_idx is not None else ""
                 if front and back:
-                    all_rows.append((front, back, str(path.name)))
+                    all_rows.append((front, back, str(path.name), driver_id))
     print(f"Loaded {len(all_rows)} RC pairs from {len(args.csv)} file(s)")
 
     # Load progress
@@ -179,7 +200,7 @@ def main():
     writer = csv.writer(results_f)
     if results_mode == "w":
         writer.writerow([
-            "row_index", "source_file", "state", "bucket_accepted",
+            "row_index", "source_file", "driver_id", "state", "bucket_accepted",
             "front_url", "back_url",
             "reg_number", "owner_name", "fuel_type", "registration_date", "vehicle_make",
             "front_score", "front_missing", "front_quality_score", "front_acceptable",
@@ -192,7 +213,7 @@ def main():
     print(f"Scanning rows {start_row + 1} to {len(all_rows)}...\n")
 
     try:
-        for i, (front_url, back_url, source_file) in enumerate(all_rows[start_row:], start=start_row):
+        for i, (front_url, back_url, source_file, driver_id) in enumerate(all_rows[start_row:], start=start_row):
             row_num = i + 1
 
             # ── Front ──
@@ -227,7 +248,7 @@ def main():
 
             # ── Write result ──
             writer.writerow([
-                row_num, source_file, state, accepted,
+                row_num, source_file, driver_id, state, accepted,
                 front_url, back_url,
                 reg_number,
                 all_fields.get("owner_name", ""),
