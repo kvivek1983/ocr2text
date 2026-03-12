@@ -2,7 +2,8 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api.routes import router, engine_router
+from app.api.routes import router, engine_router, _get_session_factory
+from app.storage.database import Base
 
 app = FastAPI(
     title="OCR Document Extraction System",
@@ -54,7 +55,19 @@ async def general_error_handler(request: Request, exc: Exception):
 
 @app.on_event("startup")
 def startup():
-    """Register OCR engines on startup."""
+    """Register OCR engines and initialise database on startup."""
+    # Ensure all tables exist (idempotent — safe to run on every boot)
+    try:
+        from sqlalchemy import create_engine
+        from app.config import settings
+        import app.storage.models  # noqa: F401 — registers models with Base metadata
+        engine = create_engine(
+            settings.DATABASE_URL,
+            connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {},
+        )
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        print(f"Warning: Could not initialise database: {e}")
     try:
         from app.engines.paddle_engine import PaddleEngine
         engine_router.register_engine("paddle", PaddleEngine())

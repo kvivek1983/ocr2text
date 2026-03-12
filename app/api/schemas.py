@@ -73,3 +73,61 @@ class ErrorResponse(BaseModel):
     error: str
     message: str
     confidence: float = 0.0
+
+
+# --- RC Validation (production quality gate) ---
+
+class RCValidationRequest(BaseModel):
+    front_url: str
+    back_url: str
+    driver_id: Optional[str] = None
+    engine: str = "paddle"
+
+
+class RCSideResult(BaseModel):
+    """Quality + extraction result for one side of an RC."""
+    quality_score: float
+    is_acceptable: bool
+    extracted_fields: Dict[str, str] = {}
+    missing_mandatory: List[str] = []
+    issues: List[str] = []
+    # Image property scores
+    blur_score: float = 0.0
+    brightness_score: float = 0.0
+    resolution_score: float = 0.0
+
+
+class RCValidationResponse(BaseModel):
+    success: bool
+    validation_id: str
+    overall_status: str           # "accepted" | "needs_review" | "rejected"
+    requires_review: bool
+    front: RCSideResult
+    back: RCSideResult
+    merged_fields: Dict[str, str] = {}
+    issues: List[str] = []        # combined issues across both sides
+    message: str = ""
+
+
+class ReviewQueueItem(BaseModel):
+    validation_id: str
+    created_at: str
+    driver_id: Optional[str]
+    overall_status: str
+    front_url: str
+    back_url: str
+    registration_number: Optional[str]
+    front_issues: List[str] = []
+    back_issues: List[str] = []
+    merged_fields: Dict[str, str] = {}
+
+
+class ReviewQueueResponse(BaseModel):
+    success: bool = True
+    total: int
+    items: List[ReviewQueueItem]
+
+
+class MarkReviewedRequest(BaseModel):
+    reviewed_by: str
+    review_notes: Optional[str] = None
