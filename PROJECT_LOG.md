@@ -47,7 +47,7 @@ tests/          - pytest suite (191+ tests)
 6. OCR noise tolerance (typo-tolerant aliases, regex fallbacks, multi-line extraction)
 
 **Current state (2026-03-12):**
-- Phase 5 complete: 51-RC batch hardening (RC_Training_Data_99to150.csv)
+- Phase 6 complete: 20-RC batch hardening (RC_Training_Data_150to170.csv)
 - 199 tests passing
 - Deployed to production (multiple commits pushed)
 
@@ -84,6 +84,27 @@ tests/          - pytest suite (191+ tests)
 ---
 
 ## Changelog
+
+### 2026-03-12 — RC SmartExtract: 20-RC Batch Hardening (Phase 6)
+
+**What happened:** Iterated through 20 new RC images (RC_Training_Data_150to170.csv) in 4 batches. Each batch: hit production API → analyze raw OCR → fix mapper → push → redeploy → verify.
+
+**Score: 4/20 (20%) both passing** — tougher dataset with more garbled/paper RCs
+- Front avg: 2.45/4 (61%), Back avg: 1.20/2 (60%)
+
+**Commits:**
+- `867a13b` — Batch 1-2: maxer's namo alias, OCR-normalized reg rejection for vehicle_make (O→0, S→5 substitution catches garbled reg numbers like "GJO1MT40S5")
+- `60c10d5` — Batch 3-4: RETROLCNG/RETROLICNG fuel normalization (OCR 'R' for 'P' in PETROL, GJ format), strip trailing punctuation from fuel value before normalization
+
+**New format support:**
+- GJ RC with "Maxer's Namo" (OCR 'x' for 'k') label
+- RETROLCNG / RETROLICNG / RETROUCNG fuel variants (GJ format)
+
+**Failure analysis:**
+- ~5/20: blank or severely garbled images
+- ~4/20: UP paper RCs (garbled reg numbers, "P78LN3638" — state code unrecognizable)
+- ~4/20: fuel_type absent from raw OCR output (label present but no value)
+- ~3/20: OCR multi-char substitutions in reg numbers (TN91ATOT10 — O+T substitutions)
 
 ### 2026-03-12 — RC SmartExtract: 51-RC Batch Hardening (Phase 5)
 
