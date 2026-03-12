@@ -83,6 +83,13 @@ class RCValidationRequest(BaseModel):
     side: str                     # "front" | "back"
     driver_id: str                # required — links front and back uploads
 
+    @field_validator("image_url")
+    @classmethod
+    def validate_image_url(cls, v):
+        if not v or v.strip().lower() in ("null", "none", ""):
+            raise ValueError("image_url must be a valid URL, got null/empty value")
+        return v
+
     @field_validator("side")
     @classmethod
     def validate_side(cls, v):

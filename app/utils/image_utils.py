@@ -13,6 +13,8 @@ def decode_base64_image(data: str) -> bytes:
 
 def fetch_image_url(url: str) -> bytes:
     """Download image from URL and return bytes."""
+    if not url or url.strip().lower() in ("null", "none", ""):
+        raise ValueError(f"Invalid image URL: '{url}'")
     response = httpx.get(url, timeout=30)
     response.raise_for_status()
     return response.content
