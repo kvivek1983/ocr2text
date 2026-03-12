@@ -34,7 +34,7 @@ DEFAULT_BUCKET_SIZE = 100
 REQUEST_TIMEOUT = 30
 DELAY_BETWEEN_REQUESTS = 0.3  # seconds — be kind to the API
 
-# State code → human label
+# All Indian state/UT codes → human label
 STATE_LABELS = {
     "MH": "MH (Maharashtra)",
     "GJ": "GJ (Gujarat)",
@@ -47,19 +47,37 @@ STATE_LABELS = {
     "MP": "MP (Madhya Pradesh)",
     "DL": "DL (Delhi)",
     "AP": "AP (Andhra Pradesh)",
-    "TS": "TS/TG (Telangana)",
-    "TG": "TS/TG (Telangana)",
+    "TS": "TS (Telangana)",
+    "TG": "TG (Telangana old)",
     "WB": "WB (West Bengal)",
     "UK": "UK (Uttarakhand)",
     "CG": "CG (Chhattisgarh)",
     "OD": "OD (Odisha)",
+    "OR": "OR (Odisha old)",
     "BR": "BR (Bihar)",
     "JH": "JH (Jharkhand)",
     "HP": "HP (Himachal Pradesh)",
     "GA": "GA (Goa)",
     "KL": "KL (Kerala)",
+    "AS": "AS (Assam)",
+    "NL": "NL (Nagaland)",
+    "MN": "MN (Manipur)",
+    "ML": "ML (Meghalaya)",
+    "TR": "TR (Tripura)",
+    "MZ": "MZ (Mizoram)",
+    "SK": "SK (Sikkim)",
+    "AR": "AR (Arunachal Pradesh)",
+    "JK": "JK (Jammu & Kashmir)",
+    "LA": "LA (Ladakh)",
+    "CH": "CH (Chandigarh)",
+    "PY": "PY (Puducherry)",
+    "AN": "AN (Andaman & Nicobar)",
+    "DN": "DN (Dadra & Nagar Haveli)",
+    "DD": "DD (Daman & Diu)",
+    "LD": "LD (Lakshadweep)",
+    "BH": "BH (Bharat series)",
 }
-OTHER_BUCKET = "OTHER"
+UNREADABLE_BUCKET = "UNREADABLE"
 
 FRONT_MANDATORY = {"registration_number", "owner_name", "fuel_type", "registration_date"}
 BACK_MANDATORY = {"registration_number", "vehicle_make"}
@@ -70,17 +88,16 @@ BACK_MANDATORY = {"registration_number", "vehicle_make"}
 def detect_state(reg_number: str) -> str:
     """Extract 2-letter state code from registration number."""
     if not reg_number:
-        return OTHER_BUCKET
+        return UNREADABLE_BUCKET
     m = re.match(r"^([A-Z]{2})", reg_number.strip().upper())
     if m:
         code = m.group(1)
-        return code if code in STATE_LABELS else OTHER_BUCKET
-    return OTHER_BUCKET
+        return code if code in STATE_LABELS else UNREADABLE_BUCKET
+    return UNREADABLE_BUCKET
 
 
 def bucket_key(state_code: str) -> str:
-    """Normalise TG→TS for bucketing."""
-    return "TS" if state_code == "TG" else state_code
+    return state_code
 
 
 _api_base = API_BASE
@@ -121,21 +138,22 @@ def save_progress(progress: dict):
 
 def print_bucket_status(buckets: dict, bucket_size: int):
     print("\n── Coverage status ─────────────────────────────────────")
-    all_codes = sorted(set(list(STATE_LABELS.keys()) + [OTHER_BUCKET]))
-    seen = set()
-    for code in all_codes:
-        key = bucket_key(code)
-        if key in seen:
-            continue
-        seen.add(key)
-        count = buckets.get(key, 0)
-        label = STATE_LABELS.get(key, STATE_LABELS.get(code, key))
-        bar = "█" * min(count, bucket_size) + "░" * max(0, bucket_size - count)
+    named = sorted((k, v) for k, v in buckets.items() if k != UNREADABLE_BUCKET)
+    unreadable = buckets.get(UNREADABLE_BUCKET, 0)
+    for key, count in named:
+        label = STATE_LABELS.get(key, key)
+        filled = min(count * 20 // max(bucket_size, 1), 20)
+        bar = "█" * filled + "░" * (20 - filled)
         status = "✓ FULL" if count >= bucket_size else f"{count}/{bucket_size}"
-        print(f"  {label:<28} {bar[:20]} {status}")
+        print(f"  {label:<32} {bar} {status}")
+    if unreadable:
+        filled = min(unreadable * 20 // max(bucket_size, 1), 20)
+        bar = "█" * filled + "░" * (20 - filled)
+        status = "✓ FULL" if unreadable >= bucket_size else f"{unreadable}/{bucket_size}"
+        print(f"  {'UNREADABLE (no reg detected)':<32} {bar} {status}")
     total = sum(buckets.values())
     full = sum(1 for v in buckets.values() if v >= bucket_size)
-    print(f"\n  Total accepted: {total} | Full buckets: {full}/{len(buckets) or '?'}")
+    print(f"\n  Total accepted: {total} | Full buckets: {full}/{len(buckets)}")
     print("─" * 57)
 
 
