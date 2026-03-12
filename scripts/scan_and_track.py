@@ -284,14 +284,31 @@ def main():
             ])
             results_f.flush()
 
-            # ── Progress save every 10 rows ──
+            # ── Progress save + live update ──
             progress["processed_rows"] = i + 1
             progress["buckets"] = buckets
             progress["total_scanned"] = progress.get("total_scanned", 0) + 1
+
             if (i + 1) % 10 == 0:
                 save_progress(progress)
+                total_accepted = sum(buckets.values())
+                full_count = sum(1 for v in buckets.values() if v >= args.bucket_size)
+                passing_so_far = progress.get("passing_count", 0)
+                top_buckets = " | ".join(
+                    f"{k}:{v}" for k, v in sorted(buckets.items(), key=lambda x: -x[1])[:6]
+                    if k != UNREADABLE_BUCKET
+                )
+                print(
+                    f"  [{row_num}/{len(all_rows)}] "
+                    f"accepted={total_accepted} full={full_count} "
+                    f"pass={passing_so_far} | {top_buckets}"
+                )
+
+            if (i + 1) % 100 == 0:
                 print_bucket_status(buckets, args.bucket_size)
-                print(f"  Row {row_num}/{len(all_rows)} | Both passing: {both_passing} | State: {state} ({reg_number})")
+
+            if both_passing:
+                progress["passing_count"] = progress.get("passing_count", 0) + 1
 
             # ── Check if all buckets full ──
             all_full = all(buckets.get(bucket_key(s), 0) >= args.bucket_size for s in STATE_LABELS)
