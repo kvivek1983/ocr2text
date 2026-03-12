@@ -17,8 +17,18 @@ class PaddleEngine(BaseOCREngine):
     def extract(self, image: bytes) -> Dict[str, Any]:
         start = time.time()
 
-        img = np.array(Image.open(io.BytesIO(image)))
-        result = self.ocr.ocr(img)
+        try:
+            pil_img = Image.open(io.BytesIO(image))
+            pil_img.verify()  # catch truncated/corrupt files early
+            pil_img = Image.open(io.BytesIO(image))  # reopen after verify
+            img = np.array(pil_img.convert("RGB"))
+        except Exception as e:
+            raise ValueError(f"Invalid or corrupt image: {e}")
+
+        try:
+            result = self.ocr.ocr(img)
+        except Exception as e:
+            raise ValueError(f"PaddleOCR failed: {e}")
 
         blocks = []
         all_text = []
