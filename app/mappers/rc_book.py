@@ -247,6 +247,8 @@ _FUEL_TYPES = [
     # Additional OCR garbled variants
     "PETROLONG",  # OCR 'O' for 'C' in PETROLCNG
     "CNGPETROL",  # reversed order on some state RCs
+    # OCR 'R' for 'P' in PETROL
+    "RETROLCNG", "RETROLICNG", "RETROUCNG", "RETROL/CNG",
     # E20 ethanol blend variants (OCR garbled)
     "PETROL(E20)/CNG", "PETROL(E20)CNG",
 ]
@@ -459,7 +461,7 @@ class RCBookMapper(BaseMapper):
         if label == "fuel_type":
             v = value.strip().upper()
             # Must contain a known fuel keyword
-            if not any(kw in v for kw in ["PETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID"]):
+            if not any(kw in v for kw in ["PETROL", "RETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID"]):
                 return False
         if label == "owner_name":
             v = value.strip()
@@ -493,7 +495,7 @@ class RCBookMapper(BaseMapper):
             if match:
                 return match.group(0)
         if label == "fuel_type":
-            return self._normalize_fuel(value.strip())
+            return self._normalize_fuel(value.strip().rstrip(".,;:"))
         if label == "owner_name":
             # Strip trailing "Son/Wife/Daughter of" merged text (with or without preceding space)
             cleaned = re.split(r'(?i)\s*son.{0,6}w[il]|\s*[Ss]\s*/\s*[Ww]\s*/\s*[Dd]', value)[0].strip()
@@ -723,6 +725,10 @@ class RCBookMapper(BaseMapper):
             "PETROLLPG": "PETROL/LPG",
             "PETROLILPG": "PETROL/LPG",  # OCR 'I' for '/'
             "DIESELCNG": "DIESEL/CNG",
+            "RETROLCNG": "PETROL/CNG",    # OCR 'R' for 'P'
+            "RETROLICNG": "PETROL/CNG",   # OCR 'R' for 'P', 'I' for '/'
+            "RETROUCNG": "PETROL/CNG",    # OCR 'R' for 'P', 'U' for '/'
+            "RETROL/CNG": "PETROL/CNG",   # OCR 'R' for 'P'
         }
         return mappings.get(text, text)
 
