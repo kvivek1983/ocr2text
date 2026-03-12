@@ -76,8 +76,9 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "regd. owner", "regd owner", "regd.owner",
         # UP format ("OwName" merged OCR)
         "owname",
-        # GJ/TN format OCR typos ("Owier", "Owncr", "Ownor")
+        # GJ/TN format OCR typos ("Owier", "Owncr", "Ownor", truncated "OwnerNa")
         "owier name", "owier",
+        "ownerna", "owner na",
         "ownor name", "ownorname", "ownor",
         # MH format OCR merge ("OwnerNarne" = Owner Name with 'rn'→'rn' merge)
         "ownernarne", "ownernarme",
@@ -147,6 +148,8 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "maters name", "mater's name",
         # OCR drops the 'r' from "Maker's" → "Make's Name"
         "make's name",
+        # No-apostrophe variant (e.g. "Makers Name;")
+        "makers name",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
@@ -431,8 +434,8 @@ class RCBookMapper(BaseMapper):
             # Reject if all digits (not a vehicle make)
             if re.match(r'^\d+$', value.strip()):
                 return False
-            # Reject if first 3 chars contain a digit (e.g. "G01MT0071" = garbled reg number)
-            prefix = value.strip()[:3]
+            # Reject if first 3 alphanumeric chars contain a digit (e.g. "G01MT0071", "G.J06BY15B7")
+            prefix = re.sub(r'[^A-Za-z0-9]', '', value.strip())[:3]
             if len(prefix) >= 2 and re.search(r'\d', prefix):
                 return False
         if label == "registration_validity":
