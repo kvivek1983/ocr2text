@@ -96,6 +96,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "fuel",
         # OCR typos for "Fuel"
         "ftel", "fues", "fue",
+        # Very short garbled label "Fu." (dot included for specificity)
+        "fu.",
     ],
     "registration_date": [
         "date of registration", "date of regn", "regn date", "date of reg", "reg date",
@@ -152,6 +154,12 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "makers name",
         # OCR 'x' for 'k' in "Maker's Name" — "Maxer's Namo"
         "maxer's name", "maxer's namo", "maxer's nane",
+        # OCR 'o' for 'a' in "Makor" — "Mokor's Name"
+        "mokor's name", "mokor's namo", "mokor's nane",
+        # OCR 'H' for 'M' in "Maker" — "Haxer's Hame", "Haxer."
+        "haxer's name", "haxer's hame", "haxer's namo", "haxer.",
+        # OCR garble of "Maker" — "Atsker Name" (mParivahan format)
+        "atsker name", "atsker's name",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
@@ -249,6 +257,12 @@ _FUEL_TYPES = [
     "CNGPETROL",  # reversed order on some state RCs
     # OCR 'R' for 'P' in PETROL
     "RETROLCNG", "RETROLICNG", "RETROUCNG", "RETROL/CNG",
+    # OCR 'T' for 'P' in PETROL
+    "TETROUCNG", "TETROLICNG",
+    # OCR 'Q' for 'O' in PETROL
+    "PETRQUCNG", "PETRQLCNG",
+    # OCR drops 'T' in PETROL → PEROL
+    "PEROLCNG", "PEROL/CNG",
     # E20 ethanol blend variants (OCR garbled)
     "PETROL(E20)/CNG", "PETROL(E20)CNG",
 ]
@@ -461,7 +475,7 @@ class RCBookMapper(BaseMapper):
         if label == "fuel_type":
             v = value.strip().upper()
             # Must contain a known fuel keyword
-            if not any(kw in v for kw in ["PETROL", "RETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID"]):
+            if not any(kw in v for kw in ["PETROL", "RETROL", "TETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID"]):
                 return False
         if label == "owner_name":
             v = value.strip()
@@ -729,6 +743,12 @@ class RCBookMapper(BaseMapper):
             "RETROLICNG": "PETROL/CNG",   # OCR 'R' for 'P', 'I' for '/'
             "RETROUCNG": "PETROL/CNG",    # OCR 'R' for 'P', 'U' for '/'
             "RETROL/CNG": "PETROL/CNG",   # OCR 'R' for 'P'
+            "TETROUCNG": "PETROL/CNG",    # OCR 'T' for 'P', 'U' for '/'
+            "TETROLICNG": "PETROL/CNG",   # OCR 'T' for 'P', 'I' for '/'
+            "PETRQUCNG": "PETROL/CNG",    # OCR 'Q' for 'O', 'U' for '/'
+            "PETRQLCNG": "PETROL/CNG",    # OCR 'Q' for 'O'
+            "PEROLCNG": "PETROL/CNG",     # OCR drops 'T' in PETROL
+            "PEROL/CNG": "PETROL/CNG",    # OCR drops 'T' in PETROL
         }
         return mappings.get(text, text)
 
