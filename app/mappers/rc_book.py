@@ -14,9 +14,9 @@ _DATE_PATTERN = re.compile(
 )
 # Strict date pattern for validation — requires 4-digit year to avoid garbled partial dates
 _STRICT_DATE_PATTERN = re.compile(
-    r'\d{1,2}[-/]\d{1,2}[-/]\d{4}'                    # DD-MM-YYYY
+    r'\d{1,2}[-/.]\d{1,2}[-/.]\d{4}'                  # DD-MM-YYYY or DD.MM.YYYY
     r'|\d{1,2}[-/]\d{4}'                               # MM-YYYY (4-digit year only)
-    rf'|\d{{1,2}}[-/]?{_MONTH_NAMES}[-/]?\d{{4}}',    # DD-Mon-YYYY
+    rf'|\d{{1,2}}[-/.]?{_MONTH_NAMES}[-/.]?\d{{4}}',  # DD-Mon-YYYY
     re.IGNORECASE,
 )
 
@@ -72,6 +72,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "qwner name", "qwnername",
         # KA format
         "ownername",
+        # Telangana/Andhra Pradesh format
+        "regd. owner", "regd owner", "regd.owner",
         # UP format ("OwName" merged OCR)
         "owname",
         # GJ/TN format OCR typos ("Owier", "Owncr", "Ownor")
@@ -211,6 +213,7 @@ BACK_MANDATORY = ["registration_number", "vehicle_make"]
 _VALID_STATE_CODES = {
     "AN", "AP", "AR", "AS", "BR", "CG", "CH", "DD", "DL", "DN", "GA", "GJ",
     "HP", "HR", "JH", "JK", "KA", "KL", "LA", "LD", "MH", "ML", "MN", "MP",
+    "TG",  # Telangana (official code TS, but TG also used in some RC formats)
     "MZ", "NL", "OD", "OR", "PB", "PY", "RJ", "SK", "TN", "TR", "TS", "UK",
     "UP", "UT", "WB",
 }
@@ -236,6 +239,9 @@ _FUEL_TYPES = [
     "PETROLICNG", "PETROUCNG", "PETROLILPG",
     # OCR 'Q' for 'O' in PETROL
     "PETRQL",
+    # Additional OCR garbled variants
+    "PETROLONG",  # OCR 'O' for 'C' in PETROLCNG
+    "CNGPETROL",  # reversed order on some state RCs
     # E20 ethanol blend variants (OCR garbled)
     "PETROL(E20)/CNG", "PETROL(E20)CNG",
 ]
@@ -604,7 +610,7 @@ class RCBookMapper(BaseMapper):
             "card issue", "serial",
             "registration authority", "registralion authority", "registratlon authority",
             "registering authority", "registrelton",  # OCR garbling of "Registration"
-            "dy rto", "rto ", "financer name", "financer ", "number of",
+            "dy rto", "rto ", "financer name", "financer ", "flnancer", "number of",
             "aeyn", "keg",  # OCR garbling of "Regn" (e.g. "Aeyn Nunber", "KegNumber")
             "setial", "setial.no",  # OCR garbling of "Serial No"
             "cubic cap", "horse power", "bhp", "kw",
@@ -703,6 +709,8 @@ class RCBookMapper(BaseMapper):
             "PETROLCNO": "PETROL/CNG",
             "PETROLICNG": "PETROL/CNG",  # OCR 'I' for '/'
             "PETROUCNG": "PETROL/CNG",   # OCR 'U' for '/'
+            "PETROLONG": "PETROL/CNG",   # OCR 'O' for 'C' in PETROLCNG
+            "CNGPETROL": "PETROL/CNG",   # reversed order
             "PETRQL": "PETROL",          # OCR 'Q' for 'O'
             "PETROLLPG": "PETROL/LPG",
             "PETROLILPG": "PETROL/LPG",  # OCR 'I' for '/'
