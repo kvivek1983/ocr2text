@@ -47,7 +47,7 @@ tests/          - pytest suite (191+ tests)
 6. OCR noise tolerance (typo-tolerant aliases, regex fallbacks, multi-line extraction)
 
 **Current state (2026-03-12):**
-- Phase 6 complete: 20-RC batch hardening (RC_Training_Data_150to170.csv)
+- Phase 7 complete: 31-RC batch hardening (RC_Training_Data_170to200.csv)
 - 199 tests passing
 - Deployed to production (multiple commits pushed)
 
@@ -84,6 +84,28 @@ tests/          - pytest suite (191+ tests)
 ---
 
 ## Changelog
+
+### 2026-03-12 — RC SmartExtract: 31-RC Batch Hardening (Phase 7)
+
+**What happened:** Iterated through 31 new RC images (RC_Training_Data_170to200.csv) in 6 batches. Each batch: hit production API → analyze raw OCR → fix mapper → push → redeploy → verify.
+
+**Score: 8/31 (26%) both passing** — Front avg: 2.65/4 (66%), Back avg: 1.13/2 (57%)
+
+**Commits:**
+- `9e97375` — Fuel garble variants (TETROUCNG/PETRQUCNG/PEROLCNG), "fu." label alias, mokor/haxer/atsker vehicle_make aliases
+
+**New format support:**
+- "Fu." as fuel label (very short garbled GJ format label)
+- TETROUCNG/TETROLICNG (OCR 'T' for 'P'), PETRQUCNG (OCR 'Q' for 'O'), PEROLCNG (OCR drops 'T') fuel normalizations
+- "mokor's name/namo" (OCR 'o' for 'a' in "Makor"), "haxer's hame/name/namo", "haxer." (OCR 'H' for 'M'), "atsker name" (mParivahan garble) vehicle_make aliases
+- RJ (Rajasthan) RC format confirmed working
+- UK (Uttarakhand) paper RC format — reg number extractable
+
+**Failure analysis:**
+- ~6/31: blank or severely garbled images (RC02, RC04, RC07, RC10, RC22 front)
+- ~5/31: UP/CG paper RCs — reg numbers garbled beyond repair
+- ~8/31: blank/missing back images
+- ~4/31: fuel_type absent from raw OCR (label present, no adjacent value)
 
 ### 2026-03-12 — RC SmartExtract: 20-RC Batch Hardening (Phase 6)
 
