@@ -19,7 +19,8 @@ app/
   storage/      - SQLAlchemy models + repository
   comparison/   - Multi-engine comparison + metrics
   utils/        - Image/text utilities
-tests/          - pytest suite (191+ tests)
+tests/          - pytest suite (199+ tests)
+scripts/        - batch scan + analysis tools
 ```
 
 **Key patterns:**
@@ -47,6 +48,7 @@ tests/          - pytest suite (191+ tests)
 6. OCR noise tolerance (typo-tolerant aliases, regex fallbacks, multi-line extraction)
 
 **Current state (2026-03-12):**
+- Phase 9 complete: large-scale scan pipeline + Railway stability fixes
 - Phase 8 complete: production RC validation API with per-side upload, DB storage, and human review queue
 - Phase 7 complete: 31-RC batch hardening (RC_Training_Data_170to200.csv)
 - 199 tests passing
@@ -85,6 +87,44 @@ tests/          - pytest suite (191+ tests)
 ---
 
 ## Changelog
+
+### 2026-03-12 — RC SmartExtract: Large-Scale Scan Pipeline + Stability Fixes (Phase 9)
+
+**What happened:** Built an automated stratified scan pipeline for 1L+ RC images, ran first scan, diagnosed Railway instability, and fixed PaddleOCR crash on corrupt images.
+
+**Scripts added:**
+- `scripts/scan_and_track.py` — scans CSV(s), hits `/extract/rc-book` per image, fills 100-per-state coverage buckets, saves resumable `scan_progress.json` + `scan_results.csv`
+- `scripts/analyze_results.py` — summarizes results: pass rate by state, top missing fields, bucket fill status
+
+**CSV format supported:**
+- Training format: `Front RC URL, Back RC URL`
+- Production format: `driver_id, front, front_url, back, back_url` (rc_book_urls.csv — 100k+ rows)
+
+**First scan results (340 pairs):**
+- Overall pass rate: **15% both passing**
+- 122 × 502 errors due to Railway Dockerfile build incident (API was restarting)
+- Top missing fields: `fuel_type` (70% of fronts), `vehicle_make` (67% of backs), `registration_number` (59%)
+- OTHER bucket (no reg number detected) = 0% pass — garbled/blank images
+- Pass rate by state: MH 45%, RJ 42%, TN 31%, GJ 20%, KA/UP/HR 0%
+
+**Railway deployment issues diagnosed and fixed:**
+- Railway Dockerfile build incident caused Railpack fallback → missing `libGL.so.1` → crash loop
+- Fixed with `nixpacks.toml` (force opencv-headless after install) + `Procfile` for start command
+- `constraints.txt` added to pip to block full `opencv-python` from transitive deps
+
+**PaddleOCR C++ crash fix (`b2556a8`):**
+- Corrupt/truncated images caused PaddleOCR to crash at C++ level
+- Worker process died → Railway restarted → 30s EasyOCR reload → all requests got 502 during restart
+- Fixed: PIL `verify()` + explicit RGB convert before PaddleOCR, `ocr()` call wrapped in try/except
+- Corrupt images now return clean 500 instead of crashing the process
+
+**How to resume scan:**
+```bash
+python3 scripts/scan_and_track.py --csv ~/Downloads/rc_book_urls.csv --resume
+python3 scripts/analyze_results.py
+```
+
+---
 
 ### 2026-03-12 — RC SmartExtract: Production Validation API (Phase 8)
 
