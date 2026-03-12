@@ -130,6 +130,9 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "maker's name", "vehicle make", "manufacturer", "maker",
         # OCR typos for "Maker's Name"
         "makor's name", "makors name", "makor's namo",
+        "laker's name", "laker's nane", "laker's namo",
+        # Leading-slash variants (OCR artefact on card border)
+        "/maker's name", "/maker", "/makor's name",
         # mParivahan / digital RC format
         "maker name",
         # KA old paper booklet format
@@ -602,7 +605,8 @@ class RCBookMapper(BaseMapper):
             "registration authority", "registralion authority", "registratlon authority",
             "registering authority", "registrelton",  # OCR garbling of "Registration"
             "dy rto", "rto ", "financer name", "financer ", "number of",
-            "aeyn",  # OCR garbling of "Regn" (e.g. "Aeyn Nunber" = "Regn. Number")
+            "aeyn", "keg",  # OCR garbling of "Regn" (e.g. "Aeyn Nunber", "KegNumber")
+            "setial", "setial.no",  # OCR garbling of "Serial No"
             "cubic cap", "horse power", "bhp", "kw",
             # mParivahan / digital RC labels
             "mobile no", "ownership", "vehicle age", "vehicle status",
