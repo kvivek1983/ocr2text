@@ -128,6 +128,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
 BACK_FIELD_ALIASES: Dict[str, List[str]] = {
     "vehicle_make": [
         "maker's name", "vehicle make", "manufacturer", "maker",
+        # OCR typos for "Maker's Name"
+        "makor's name", "makors name", "makor's namo",
         # mParivahan / digital RC format
         "maker name",
         # KA old paper booklet format
@@ -594,7 +596,7 @@ class RCBookMapper(BaseMapper):
             "individual", "asper",
             "'s.name", "'sname", "s.name",
             "unladen", "wheel", "month", "standing", "body type",
-            "vehicle", "vehide", "vehcle", "vehile",  # OCR typos for "vehicle"
+            "vehicle", "vehide", "vehcle", "vehile", "vohick", "vohide",  # OCR typos for "vehicle"
             "son/wife", "son /wife", "son/", "s/w/d", "s/o", "d/o", "w/o",
             "card issue", "serial",
             "registration authority", "registralion authority", "registratlon authority",
