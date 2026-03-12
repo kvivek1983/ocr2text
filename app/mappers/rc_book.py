@@ -150,6 +150,8 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "make's name",
         # No-apostrophe variant (e.g. "Makers Name;")
         "makers name",
+        # OCR 'x' for 'k' in "Maker's Name" — "Maxer's Namo"
+        "maxer's name", "maxer's namo", "maxer's nane",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
@@ -419,8 +421,11 @@ class RCBookMapper(BaseMapper):
             # Reject vehicle class/type labels (e.g. "Vehicle Class: Motor Cab (LPV)")
             if "class" in v or "motor cab" in v or "body type" in v:
                 return False
-            # Reject if it looks like a registration number
+            # Reject if it looks like a registration number (including OCR substitutions O→0, S→5, I→1)
             if _REG_NUMBER_PATTERN.search(value):
+                return False
+            normalized = value.translate(str.maketrans("OSIBZ", "05182"))
+            if _REG_NUMBER_PATTERN.search(normalized):
                 return False
             # Reject if entirely non-alphanumeric (e.g. "......" from garbled OCR)
             if not re.search(r'[A-Za-z0-9]', value):
