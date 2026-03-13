@@ -269,7 +269,10 @@ _FUEL_TYPES = [
     "PETRQUCNG", "PETRQLCNG",
     # OCR drops 'T' in PETROL → PEROL
     "PEROLCNG", "PEROL/CNG",
-    # E20 ethanol blend variants (OCR garbled)
+    # E20 ethanol blend variants (standalone and combined)
+    "PETROL(E20)", "PETROL (E20)", "PETROL-E20",
+    # OCR 'I' for 'T' in PETROL → PEIROL
+    "PEIROL(E20)", "PEIROL (E20)",
     "PETROL(E20)/CNG", "PETROL(E20)CNG",
 ]
 
@@ -481,7 +484,7 @@ class RCBookMapper(BaseMapper):
         if label == "fuel_type":
             v = value.strip().upper()
             # Must contain a known fuel keyword
-            if not any(kw in v for kw in ["PETROL", "RETROL", "TETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID"]):
+            if not any(kw in v for kw in ["PETROL", "PEIROL", "RETROL", "TETROL", "DIESEL", "CNG", "LPG", "ELECTRIC", "HYBRID"]):
                 return False
         if label == "owner_name":
             v = value.strip()
@@ -715,26 +718,45 @@ class RCBookMapper(BaseMapper):
                     normalized = fuel if "/" in fuel else self._normalize_fuel(line_upper)
                     return {"label": "fuel_type", "value": normalized}
         # Pass 2: regex extraction from merged/garbled lines
+        # Handles PETROL/RETROL/PEIROL + optional E20 blend + CNG/LPG
         fuel_regex = re.compile(
-            r'(PETROL|DIESEL)\s*(?:[\(/]?E\d+.{0,2})?\s*[/\\]?\s*(CNG|LPG)',
+            r'(P[EI]TROL|RETROL|DIESEL)\s*(?:[\(/]?E\d+[)\s]*)?\s*[/\\]?\s*(CNG|LPG)',
             re.IGNORECASE,
         )
-        single_fuel = re.compile(r'\b(PETROL|DIESEL|CNG|LPG|ELECTRIC|HYBRID)\b', re.IGNORECASE)
+        # E20 blend standalone (e.g. "PETROL(E20)", "PETROL E20")
+        e20_regex = re.compile(r'\b(P[EI]TROL)\s*[\(\-]?\s*E\d+', re.IGNORECASE)
+        single_fuel = re.compile(
+            r'\b(PETROL|RETROL|PEIROL|DIESEL|CNG|LPG|ELECTRIC|HYBRID)\b', re.IGNORECASE
+        )
         for line in lines:
             m = fuel_regex.search(line)
             if m:
-                return {"label": "fuel_type", "value": f"{m.group(1).upper()}/{m.group(2).upper()}"}
+                base = "PETROL" if m.group(1).upper() in ("PETROL", "RETROL", "PEIROL") else m.group(1).upper()
+                return {"label": "fuel_type", "value": f"{base}/{m.group(2).upper()}"}
+        # Pass 2b: E20 blend standalone
+        for line in lines:
+            m = e20_regex.search(line)
+            if m:
+                return {"label": "fuel_type", "value": "PETROL(E20)"}
         # Pass 3: single fuel type anywhere in text
         for line in lines:
             m = single_fuel.search(line)
             if m:
-                return {"label": "fuel_type", "value": m.group(1).upper()}
+                raw = m.group(1).upper()
+                normalized = "PETROL" if raw in ("RETROL", "PEIROL") else raw
+                return {"label": "fuel_type", "value": normalized}
         return None
 
     @staticmethod
     def _normalize_fuel(text: str) -> str:
         """Normalize merged fuel strings like PETROLCNG -> PETROL/CNG."""
         mappings = {
+            # E20 ethanol-blend normalization
+            "PETROL(E20)": "PETROL(E20)",
+            "PETROL (E20)": "PETROL(E20)",
+            "PETROL-E20": "PETROL(E20)",
+            "PEIROL(E20)": "PETROL(E20)",
+            "PEIROL (E20)": "PETROL(E20)",
             "PETROLCNG": "PETROL/CNG",
             "PETROLCNO": "PETROL/CNG",
             "PETROLICNG": "PETROL/CNG",  # OCR 'I' for '/'
