@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 from pathlib import Path
@@ -10,6 +11,7 @@ from openai import AsyncOpenAI
 from app.llm.schemas import LLMExtractionResult, LLMExtractionMetadata
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 
 # Prompt directory
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -33,6 +35,9 @@ class LLMExtractor:
         self.provider = provider or settings.LLM_PROVIDER
         self._anthropic_client = None
         self._openai_client = None
+        logger.info(f"LLMExtractor init: provider={self.provider}, "
+                     f"anthropic_key_set={bool(settings.ANTHROPIC_API_KEY)}, "
+                     f"openai_key_set={bool(settings.OPENAI_API_KEY)}")
 
     @property
     def anthropic_client(self):
