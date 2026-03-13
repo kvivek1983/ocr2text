@@ -301,9 +301,12 @@ Runs after all 3 documents individually approved. Updates `driver_onboarding_sta
 
 Lives in `app/api/verify_routes.py` (new file, registered on existing FastAPI app).
 
-**Pipeline (synchronous, target <5s):**
+**Pipeline (synchronous, target <10s initially, optimize to <5s later):**
+
+Note: PaddleOCR cold start can take 2-3s, LLM call adds 1-2s, image fetch from S3 adds 0.5-1s. Realistic initial latency is 4-6s, potentially up to 10s on cold starts. Set initial timeout at 10s and optimize down (engine warm-up, connection pooling, prompt shortening) rather than fighting timeouts in week 1.
+
 ```
-1. Validate input + create/update *_validations record
+1. Validate input + create/update *_validations record (see 5.1.1 for front/back logic)
 2. Fetch image from URL (existing image_utils)
 3. Run OCR (PaddleOCR, fallback EasyOCR) -> store raw text
 4. asyncio.gather:
@@ -314,6 +317,26 @@ Lives in `app/api/verify_routes.py` (new file, registered on existing FastAPI ap
 7. If quality passes -> return status:"accepted" + LLM structured_data
 8. Fire-and-forget: trigger govt verification as background task
 ```
+
+### 5.1.1 Front/Back Upload Logic
+
+The endpoint handles both sides of a document using the same pattern as existing `rc_validations`:
+
+**Front upload (side="front"):**
+1. Check if driver_id already has a `pending_back` record for this doc type
+2. If yes → reject (front already uploaded, waiting for back)
+3. If no → create new `*_validations` record with `front_url`, set `overall_status = 'pending_back'`
+4. Run OCR + quality + LLM on front only, store in `front_fields`, `front_quality_score`
+
+**Back upload (side="back"):**
+1. Look up existing `pending_back` record for this driver_id + doc type
+2. If not found → reject (must upload front first)
+3. If found → update record: set `back_url`, run OCR + quality + LLM on back
+4. Merge front_fields + back_fields → `merged_fields`
+5. Set `overall_status = 'pending_verification'` (or `pending_review` if quality issues)
+6. Fire-and-forget: trigger govt verification
+
+This logic applies identically to RC, DL, and Aadhaar. The `get_pending_back_for_driver(driver_id)` pattern already exists in `RCValidationRepository` — replicate for DL and Aadhaar repositories.
 
 **Govt verification is async (not in sync response).** Govt APIs are unreliable — response time varies, may timeout. Background task stores result in `*_govt_verifications` when complete. Auto-approval engine runs after govt response arrives.
 
