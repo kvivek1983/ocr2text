@@ -13,6 +13,9 @@ app = FastAPI(
 
 app.include_router(router)
 
+from app.api.verify_routes import verify_router
+app.include_router(verify_router)
+
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
