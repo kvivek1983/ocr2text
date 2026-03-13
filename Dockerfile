@@ -3,13 +3,13 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies for OpenCV
+# Note: tesseract-ocr removed — using Google Vision API instead
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender-dev \
-    # tesseract-ocr \  # Commented out — using Google Vision API
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
