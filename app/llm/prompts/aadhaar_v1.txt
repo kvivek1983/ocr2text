@@ -1,0 +1,29 @@
+You are an expert at extracting structured data from Indian Aadhaar card OCR text.
+
+The OCR text below was extracted from a {side} side image of an Aadhaar card. The text may contain OCR errors, bilingual (Hindi/English) text, garbled characters, and formatting issues.
+
+Extract the following fields. Return ONLY valid JSON with no explanation.
+
+Fields to extract:
+- aadhaar_number: 12-digit Aadhaar number (may be masked as XXXX XXXX 1234)
+- holder_name: Full name of the Aadhaar holder
+- date_of_birth: Date of birth (format: YYYY-MM-DD)
+- gender: Gender of the holder (MALE, FEMALE, TRANSGENDER)
+- father_name: Father's name (if visible, typically on front side)
+- address: Full address as printed on the card
+- pin_code: 6-digit PIN code from the address
+
+Rules:
+- If a field is not visible or cannot be determined, set it to null
+- For dates, convert any format (DD/MM/YYYY, DD-MM-YYYY, YYYY) to YYYY-MM-DD
+- If only year of birth is visible, use YYYY-01-01 as the date
+- Aadhaar number may be fully masked (XXXX XXXX XXXX) — preserve as-is
+- Aadhaar number may be partially masked (XXXX XXXX 1234) — preserve as-is
+- For unmasked numbers, format as XXXX XXXX XXXX (groups of 4 separated by spaces)
+- Bilingual text: the card shows both Hindi and English; extract English values
+- Gender may appear as M/F or in Hindi (पुरुष=MALE, महिला=FEMALE)
+- Common OCR errors: 0↔O, 1↔I↔L, 5↔S, 8↔B
+- Address lines may be split across multiple OCR lines; join them intelligently
+- PIN code is 6 digits and appears at the end of the address
+
+Return JSON only:

@@ -1,0 +1,30 @@
+You are an expert at extracting structured data from Indian Driving License (DL) OCR text.
+
+The OCR text below was extracted from a {side} side image of a driving license. The text may contain OCR errors, garbled characters, Hindi-English mixed text, and formatting issues.
+
+Extract the following fields. Return ONLY valid JSON with no explanation.
+
+Fields to extract:
+- dl_number: Driving license number (format: XX00-0000000000)
+- holder_name: Full name of the license holder
+- father_husband_name: Father or husband name
+- date_of_birth: Date of birth (format: YYYY-MM-DD)
+- blood_group: Blood group (e.g., A+, B-, O+, AB+)
+- issue_date: Date of issue (format: YYYY-MM-DD)
+- validity_nt: Non-transport vehicle validity date (format: YYYY-MM-DD)
+- validity_tr: Transport vehicle validity date (format: YYYY-MM-DD)
+- issuing_authority: Name and code of the issuing RTO authority
+- cov_details: JSON array of class-of-vehicle details, each object with keys: class, issue_date, expiry_date
+- address: Full residential address of the holder
+
+Rules:
+- If a field is not visible or cannot be determined, set it to null
+- For dates, convert any format to YYYY-MM-DD
+- For cov_details, return an empty array [] if no COV data is visible
+- Common OCR errors: 0↔O, 1↔I↔L, 5↔S, 8↔B
+- DL number format varies by state; preserve as-is after normalizing spaces
+- NT = Non-Transport (LMV, MCWG, etc.), TR = Transport (LTV, HTV, etc.)
+- Blood group may appear as A+ve, B-ve — normalize to A+, B-, etc.
+- State codes: MH=Maharashtra, GJ=Gujarat, KA=Karnataka, TN=Tamil Nadu, UP=Uttar Pradesh, HR=Haryana, DL=Delhi, RJ=Rajasthan, PB=Punjab, WB=West Bengal, MP=Madhya Pradesh, TG=Telangana, UK=Uttarakhand
+
+Return JSON only:

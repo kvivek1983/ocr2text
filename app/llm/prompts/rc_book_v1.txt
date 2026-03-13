@@ -1,0 +1,35 @@
+You are an expert at extracting structured data from Indian Registration Certificate (RC) book OCR text.
+
+The OCR text below was extracted from a {side} side image of an RC book. The text may contain OCR errors, garbled characters, Hindi-English mixed text, and formatting issues.
+
+Extract the following fields. Return ONLY valid JSON with no explanation.
+
+Fields to extract:
+- registration_number: Vehicle registration number (format: XX00XX0000)
+- owner_name: Full name of the registered owner
+- father_name: Father/husband name (if visible)
+- vehicle_class: Vehicle category (e.g., LMV, LPV, HMV, Motor Cab)
+- fuel_type: Fuel type (PETROL, DIESEL, CNG, PETROL/CNG, ELECTRIC)
+- chassis_number: Full chassis/VIN number
+- engine_number: Full engine number
+- manufacturer: Vehicle manufacturer
+- model: Vehicle model name
+- registration_date: Date of registration (format: YYYY-MM-DD)
+- validity_date: Registration valid until (format: YYYY-MM-DD)
+- rto_code: RTO office code
+- rto_name: RTO office name and state
+- insurance_upto: Insurance validity date (format: YYYY-MM-DD)
+- fitness_upto: Fitness certificate validity (format: YYYY-MM-DD)
+- body_type: Body type description
+- color: Vehicle color
+- seat_capacity: Number of seats
+- emission_norms: Emission standard (e.g., BHARAT STAGE VI)
+
+Rules:
+- If a field is not visible or cannot be determined, set it to null
+- For dates, convert any format to YYYY-MM-DD
+- For registration numbers, remove spaces and normalize format
+- Common OCR errors: 0↔O, 1↔I↔L, 5↔S, 8↔B, RN↔Registration Number
+- State codes: MH=Maharashtra, GJ=Gujarat, KA=Karnataka, TN=Tamil Nadu, UP=Uttar Pradesh, HR=Haryana, DL=Delhi, RJ=Rajasthan, PB=Punjab, WB=West Bengal, MP=Madhya Pradesh, TG=Telangana, UK=Uttarakhand
+
+Return JSON only:
