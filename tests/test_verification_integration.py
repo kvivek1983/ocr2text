@@ -45,15 +45,22 @@ def test_full_rc_pipeline_front_upload():
     mock_repo_cls = MagicMock()
     mock_llm_repo_cls = MagicMock()
 
+    from app.api.routes import get_db
+    mock_db = MagicMock()
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    mock_repo = MagicMock()
+    mock_record = MagicMock()
+    mock_record.id = "int-test-001"
+    mock_repo.create.return_value = mock_record
+    mock_repo.get_pending_back_for_driver.return_value = None
+    mock_repo_cls.return_value = mock_repo
+
     with patch("app.api.verify_routes.fetch_image_url") as mock_fetch, \
          patch("app.api.verify_routes.extraction_service") as mock_svc, \
-         patch("app.api.verify_routes.LLMExtractor") as mock_llm_cls, \
-         patch("app.api.verify_routes.get_db") as mock_get_db, \
+         patch("app.api.verify_routes._llm_extractor") as mock_llm, \
          patch("app.api.verify_routes.REPO_MAP", {"rc_book": mock_repo_cls}), \
          patch("app.api.verify_routes.LLMExtractionRepository", mock_llm_repo_cls):
-
-        mock_db = MagicMock()
-        mock_get_db.return_value = iter([mock_db])
 
         mock_fetch.return_value = b"fake_image_bytes"
         mock_svc.extract.return_value = {
@@ -67,8 +74,7 @@ def test_full_rc_pipeline_front_upload():
             "confidence": 0.95,
         }
 
-        mock_llm = AsyncMock()
-        mock_llm.extract.return_value = MagicMock(
+        mock_llm.extract = AsyncMock(return_value=MagicMock(
             status="success",
             extracted_fields={"registration_number": "KA01AB1234", "owner_name": "RAJESH KUMAR"},
             metadata=MagicMock(
@@ -78,14 +84,7 @@ def test_full_rc_pipeline_front_upload():
             raw_response={"text": "{}"},
             system_prompt_used="test",
             token_input=400, token_output=80, cost_inr=0.005,
-        )
-        mock_llm_cls.return_value = mock_llm
-
-        mock_repo = MagicMock()
-        mock_record = MagicMock()
-        mock_record.id = "int-test-001"
-        mock_repo.create.return_value = mock_record
-        mock_repo_cls.return_value = mock_repo
+        ))
 
         resp = client.post("/verify/document", json={
             "image_type": "rc_book",
@@ -100,3 +99,5 @@ def test_full_rc_pipeline_front_upload():
         assert data["status"] == "accepted"
         assert data["quality_score"] == 0.9
         assert data["structured_data"]["registration_number"] == "KA01AB1234"
+
+    app.dependency_overrides.clear()
