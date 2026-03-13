@@ -180,6 +180,7 @@ async def verify_document(
             prompt_version=llm_result.metadata.prompt_version,
             ocr_engine="paddleocr",
         ) if llm_result.status == "success" else None,
+        llm_debug=llm_result.error_message if llm_result.status != "success" else None,
     )
 
 

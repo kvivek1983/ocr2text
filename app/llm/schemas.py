@@ -99,3 +99,4 @@ class VerifyDocumentResponse(BaseModel):
     message: str
     structured_data: Optional[Dict[str, Any]] = None
     extraction_metadata: Optional[LLMExtractionMetadata] = None
+    llm_debug: Optional[str] = None  # TEMPORARY — remove after debugging
