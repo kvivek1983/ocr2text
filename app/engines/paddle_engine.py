@@ -21,7 +21,17 @@ class PaddleEngine(BaseOCREngine):
             pil_img = Image.open(io.BytesIO(image))
             pil_img.verify()  # catch truncated/corrupt files early
             pil_img = Image.open(io.BytesIO(image))  # reopen after verify
-            img = np.array(pil_img.convert("RGB"))
+            pil_img = pil_img.convert("RGB")
+            # Resize if either dimension exceeds 4096px — prevents MKL/oneDNN
+            # "could not create a primitive descriptor" crash on high-res images
+            max_dim = 4096
+            w, h = pil_img.size
+            if w > max_dim or h > max_dim:
+                scale = max_dim / max(w, h)
+                pil_img = pil_img.resize(
+                    (int(w * scale), int(h * scale)), Image.LANCZOS
+                )
+            img = np.array(pil_img)
         except Exception as e:
             raise ValueError(f"Invalid or corrupt image: {e}")
 
