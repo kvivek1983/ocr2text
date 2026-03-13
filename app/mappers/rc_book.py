@@ -160,6 +160,12 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "haxer's name", "haxer's hame", "haxer's namo", "haxer.",
         # OCR garble of "Maker" — "Atsker Name" (mParivahan format)
         "atsker name", "atsker's name",
+        # TN format — "JancerName" (garble of "Maker Name")
+        "jancername", "jancer name", "jancer's name",
+        # TN/AP format — "ManufacturerName" merged label
+        "manufacturername", "manufacturer name",
+        # Generic label variations seen in AP/TN
+        "mfg name", "mfg. name", "vehicle mfg",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
