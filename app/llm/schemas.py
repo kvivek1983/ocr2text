@@ -53,7 +53,7 @@ class LLMExtractionMetadata(BaseModel):
     llm_model: str
     extraction_time_ms: int
     prompt_version: str
-    ocr_engine: str = "paddleocr"
+    ocr_engine: str = "google_vision"
 
 
 class LLMExtractionResult(BaseModel):
@@ -94,9 +94,7 @@ class VerifyDocumentResponse(BaseModel):
     request_id: str
     status: str
     quality_score: float
-    authenticity_passed: bool
     rejection_reasons: List[str] = []
     message: str
     structured_data: Optional[Dict[str, Any]] = None
     extraction_metadata: Optional[LLMExtractionMetadata] = None
-    llm_debug: Optional[str] = None  # TEMPORARY — remove after debugging

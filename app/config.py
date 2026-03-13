@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SECONDS: int = 30
 
     # Quality thresholds
+    QUALITY_GATE_THRESHOLD: float = 0.4   # Layer A minimum to proceed to LLM (skip LLM if below)
     QUALITY_SCORE_THRESHOLD: float = 0.6
     BLUR_THRESHOLD: float = 0.5
     BRIGHTNESS_MIN: float = 0.3
