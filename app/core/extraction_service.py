@@ -40,9 +40,17 @@ class ExtractionService:
         # 1. Preprocess
         processed = self.preprocessor.process(image_bytes)
 
-        # 2. OCR
+        # 2. OCR — fallback to easyocr if primary engine crashes
         ocr_engine = self.router.get_engine(engine)
-        ocr_result = ocr_engine.extract(processed)
+        try:
+            ocr_result = ocr_engine.extract(processed)
+        except Exception as primary_err:
+            fallback_name = "easyocr" if engine != "easyocr" else "tesseract"
+            try:
+                fallback_engine = self.router.get_engine(fallback_name)
+                ocr_result = fallback_engine.extract(processed)
+            except Exception:
+                raise primary_err  # re-raise original if fallback also fails
 
         raw_text = ocr_result["raw_text"]
         confidence = ocr_result["confidence"]
