@@ -122,13 +122,13 @@ async def verify_document(
                 merged_fields=merged,
                 ocr_raw_text_back=raw_text,
             )
-            # Fire background govt verification
-            doc_number = (record.merged_fields or {}).get(
-                DOC_NUMBER_FIELD.get(request.image_type, ""), ""
-            )
-            background_tasks.add_task(
-                _run_govt_verification, record.id, request.image_type, doc_number, db
-            )
+            # Fire background govt verification (disabled until reseller keys are configured)
+            # doc_number = (record.merged_fields or {}).get(
+            #     DOC_NUMBER_FIELD.get(request.image_type, ""), ""
+            # )
+            # background_tasks.add_task(
+            #     _run_govt_verification, record.id, request.image_type, doc_number, db
+            # )
 
         validation_id = record.id
 
