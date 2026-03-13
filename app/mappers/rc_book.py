@@ -222,11 +222,11 @@ BACK_INDICATORS = [
 ]
 
 FRONT_MANDATORY = [
-    "registration_number", "owner_name", "fuel_type", "registration_date",
+    "registration_number", "owner_name", "fuel_type", "registration_date", "address",
 ]
 # Engine/chassis are COMMON fields (front for MH/GJ, back for some other states)
 # Back mandatory: only fields reliably present on back across all state formats
-BACK_MANDATORY = ["registration_number", "vehicle_make"]
+BACK_MANDATORY = ["registration_number", "vehicle_make", "chassis_number", "engine_number"]
 
 # Valid Indian state/UT registration code prefixes
 _VALID_STATE_CODES = {

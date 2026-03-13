@@ -79,8 +79,8 @@ STATE_LABELS = {
 }
 UNREADABLE_BUCKET = "UNREADABLE"
 
-FRONT_MANDATORY = {"registration_number", "owner_name", "fuel_type", "registration_date"}
-BACK_MANDATORY = {"registration_number", "vehicle_make"}
+FRONT_MANDATORY = {"registration_number", "owner_name", "fuel_type", "registration_date", "address"}
+BACK_MANDATORY = {"registration_number", "vehicle_make", "chassis_number", "engine_number"}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -220,7 +220,8 @@ def main():
         writer.writerow([
             "row_index", "source_file", "driver_id", "state", "bucket_accepted",
             "front_url", "back_url",
-            "reg_number", "owner_name", "fuel_type", "registration_date", "vehicle_make",
+            "reg_number", "owner_name", "fuel_type", "registration_date", "address",
+            "vehicle_make", "chassis_number", "engine_number",
             "front_score", "front_missing", "front_quality_score", "front_acceptable",
             "back_score", "back_missing", "back_quality_score", "back_acceptable",
             "both_passing", "front_error", "back_error",
@@ -272,7 +273,10 @@ def main():
                 all_fields.get("owner_name", ""),
                 all_fields.get("fuel_type", ""),
                 all_fields.get("registration_date", ""),
+                all_fields.get("address", ""),
                 all_fields.get("vehicle_make", ""),
+                all_fields.get("chassis_number", ""),
+                all_fields.get("engine_number", ""),
                 front_score, "|".join(front_missing),
                 fiq.get("overall_score", ""), fiq.get("is_acceptable", ""),
                 back_score, "|".join(back_missing),
