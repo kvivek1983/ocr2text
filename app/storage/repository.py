@@ -407,6 +407,50 @@ class GovtResellerRepository:
         self.session.refresh(record)
         return record
 
+    def record_success(self, reseller_id: str, response_time_ms: int) -> Optional[GovtReseller]:
+        record = (
+            self.session.query(GovtReseller)
+            .filter(GovtReseller.id == reseller_id)
+            .with_for_update()
+            .first()
+        )
+        if not record:
+            return None
+        record.total_requests = (record.total_requests or 0) + 1
+        record.successful_requests = (record.successful_requests or 0) + 1
+        record.consecutive_failures = 0
+        record.circuit_state = "closed"
+        record.last_success_at = datetime.utcnow()
+        prev_avg = record.avg_response_ms or response_time_ms
+        total = record.total_requests
+        record.avg_response_ms = int((prev_avg * (total - 1) + response_time_ms) / total)
+        record.updated_at = datetime.utcnow()
+        self.session.commit()
+        self.session.refresh(record)
+        return record
+
+    def record_failure(self, reseller_id: str, reason: str) -> Optional[GovtReseller]:
+        record = (
+            self.session.query(GovtReseller)
+            .filter(GovtReseller.id == reseller_id)
+            .with_for_update()
+            .first()
+        )
+        if not record:
+            return None
+        record.total_requests = (record.total_requests or 0) + 1
+        record.failed_requests = (record.failed_requests or 0) + 1
+        record.consecutive_failures = (record.consecutive_failures or 0) + 1
+        record.last_failure_at = datetime.utcnow()
+        record.last_failure_reason = reason
+        if record.consecutive_failures >= 5:
+            record.circuit_state = "open"
+            record.circuit_opened_at = datetime.utcnow()
+        record.updated_at = datetime.utcnow()
+        self.session.commit()
+        self.session.refresh(record)
+        return record
+
 
 class DriverOnboardingRepository:
     def __init__(self, session: Session):
@@ -420,7 +464,12 @@ class DriverOnboardingRepository:
         )
 
     def upsert(self, driver_id: str, **kwargs) -> DriverOnboardingStatus:
-        record = self.get_by_driver_id(driver_id)
+        record = (
+            self.session.query(DriverOnboardingStatus)
+            .filter(DriverOnboardingStatus.driver_id == driver_id)
+            .with_for_update()
+            .first()
+        )
         if record:
             for key, value in kwargs.items():
                 setattr(record, key, value)

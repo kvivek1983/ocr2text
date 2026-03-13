@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.govt.client import GovtAPIClient
+from app.govt.schemas import GovtVerificationResult
 
 
 @pytest.mark.asyncio
@@ -8,29 +9,26 @@ async def test_client_calls_primary_reseller():
     mock_session = MagicMock()
     reseller = MagicMock()
     reseller.provider_code = "gridlines"
-    reseller.endpoints_by_doc_type = {"rc_book": "https://api.gridlines.io/rc"}
-    reseller.response_mappers_by_doc_type = {"rc_book": "gridlines"}
-    reseller.auth_config = {"env_var": "GRIDLINES_API_KEY"}
-    reseller.timeout_ms = 10000
     reseller.circuit_state = "closed"
     reseller.id = "r1"
 
-    with patch("app.govt.client.httpx.AsyncClient") as mock_httpx:
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "data": {"rc_data": {"owner_data": {"name": "TEST"}, "vehicle_data": {}, "status": "ACTIVE"}}
-        }
-        mock_httpx.return_value.__aenter__ = AsyncMock(return_value=mock_httpx.return_value)
-        mock_httpx.return_value.__aexit__ = AsyncMock(return_value=False)
-        mock_httpx.return_value.post = AsyncMock(return_value=mock_resp)
+    fake_result = GovtVerificationResult(
+        status="success",
+        reseller_code="gridlines",
+        normalized_fields={"owner_name": "TEST"},
+        raw_response={"data": {}},
+        response_time_ms=120,
+    )
 
+    with patch.object(GovtAPIClient, "_call_reseller", new_callable=AsyncMock, return_value=fake_result), \
+         patch("app.storage.repository.GovtResellerRepository.record_success") as mock_record:
         client = GovtAPIClient(session=mock_session)
         client._resellers = [reseller]
 
         result = await client.verify("MH47BL1775", "rc_book")
         assert result.status == "success"
         assert result.normalized_fields["owner_name"] == "TEST"
+        mock_record.assert_called_once_with("r1", 120)
 
 
 @pytest.mark.asyncio
@@ -47,3 +45,21 @@ async def test_client_skips_open_circuit():
     result = await client.verify("MH47BL1775", "rc_book")
     assert result.status == "failed"
     assert "all resellers" in result.error_message.lower()
+
+
+@pytest.mark.asyncio
+async def test_client_records_failure_through_repository():
+    mock_session = MagicMock()
+    reseller = MagicMock()
+    reseller.provider_code = "gridlines"
+    reseller.circuit_state = "closed"
+    reseller.id = "r1"
+
+    with patch.object(GovtAPIClient, "_call_reseller", new_callable=AsyncMock, side_effect=Exception("timeout")), \
+         patch("app.storage.repository.GovtResellerRepository.record_failure") as mock_failure:
+        client = GovtAPIClient(session=mock_session)
+        client._resellers = [reseller]
+
+        result = await client.verify("MH47BL1775", "rc_book")
+        assert result.status == "failed"
+        mock_failure.assert_called_once_with("r1", "timeout")

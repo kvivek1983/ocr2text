@@ -35,19 +35,14 @@ class GovtAPIClient:
             try:
                 result = await self._call_reseller(reseller, document_number, doc_type)
                 if result.status == "success":
-                    reseller.consecutive_failures = 0
-                    reseller.circuit_state = "closed"
-                    reseller.successful_requests = (reseller.successful_requests or 0) + 1
-                    reseller.total_requests = (reseller.total_requests or 0) + 1
-                    self.session.commit()
+                    from app.storage.repository import GovtResellerRepository
+                    repo = GovtResellerRepository(self.session)
+                    repo.record_success(reseller.id, result.response_time_ms)
                     return result
-            except Exception:
-                reseller.consecutive_failures = (reseller.consecutive_failures or 0) + 1
-                reseller.total_requests = (reseller.total_requests or 0) + 1
-                reseller.last_failure_at = datetime.utcnow()
-                if reseller.consecutive_failures >= 5:
-                    reseller.circuit_state = "open"
-                self.session.commit()
+            except Exception as e:
+                from app.storage.repository import GovtResellerRepository
+                repo = GovtResellerRepository(self.session)
+                repo.record_failure(reseller.id, str(e))
                 continue
 
         return GovtVerificationResult(
