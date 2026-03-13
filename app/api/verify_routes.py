@@ -83,15 +83,9 @@ async def verify_document(
     image_bytes = await loop.run_in_executor(None, fetch_image_url, request.image_url)
 
     # =========================================================================
-    # Step 2: PARALLEL — Google Vision OCR + Image Quality Layer A
-    # Both are sync/CPU-bound — run in thread pool executor for true parallelism
+    # Step 2: Image Quality Check FIRST (saves Google Vision + LLM cost on bad images)
     # =========================================================================
-    def _ocr_sync():
-        engine = _get_google_engine()
-        return engine.extract(image_bytes)
-
     def _quality_sync():
-        # Decode image bytes to numpy array for OpenCV quality checks
         nparr = np.frombuffer(image_bytes, np.uint8)
         image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if image is None:
@@ -101,7 +95,6 @@ async def verify_document(
                 "feedback": ["Could not decode image"],
             }
         props = _quality_assessor.assess_image_properties(image)
-        # Determine acceptability from Layer A alone (quality gate)
         score = props["layer_a_score"]
         is_acceptable = score >= settings.QUALITY_GATE_THRESHOLD
         feedback = []
@@ -118,21 +111,15 @@ async def verify_document(
             "feedback": feedback,
         }
 
-    ocr_result, quality_a = await asyncio.gather(
-        loop.run_in_executor(None, _ocr_sync),
-        loop.run_in_executor(None, _quality_sync),
-    )
-
-    raw_text = ocr_result.get("raw_text", "")
-    ocr_confidence = ocr_result.get("confidence", 0.0)
+    quality_a = await loop.run_in_executor(None, _quality_sync)
 
     # =========================================================================
-    # Step 3: Quality Gate — reject immediately if image quality is too low
+    # Step 3: Quality Gate — reject BEFORE calling Google Vision (saves OCR + LLM cost)
     # =========================================================================
     repo = DocumentValidationRepository(db)
 
     if not quality_a["is_acceptable"]:
-        # Store record with rejection, skip LLM call (save cost)
+        # Store record with rejection — no OCR text (Vision was never called)
         try:
             if request.side == "front":
                 record = repo.create(
@@ -142,7 +129,6 @@ async def verify_document(
                     overall_status="rejected",
                     front_quality_score=quality_a["overall_score"],
                     front_issues=quality_a["feedback"],
-                    ocr_raw_text_front=raw_text,
                 )
             else:
                 record = repo.get_pending_back_for_driver(request.driver_id, request.image_type)
@@ -154,7 +140,6 @@ async def verify_document(
                     overall_status="rejected",
                     back_quality_score=quality_a["overall_score"],
                     back_issues=quality_a["feedback"],
-                    ocr_raw_text_back=raw_text,
                 )
             validation_id = record.id
         except HTTPException:
@@ -174,7 +159,18 @@ async def verify_document(
         )
 
     # =========================================================================
-    # Step 4: LLM Haiku extraction (only if quality passed)
+    # Step 4: Google Vision OCR (only if quality passed — saves ~₹0.12/bad image)
+    # =========================================================================
+    def _ocr_sync():
+        engine = _get_google_engine()
+        return engine.extract(image_bytes)
+
+    ocr_result = await loop.run_in_executor(None, _ocr_sync)
+    raw_text = ocr_result.get("raw_text", "")
+    ocr_confidence = ocr_result.get("confidence", 0.0)
+
+    # =========================================================================
+    # Step 5: LLM Haiku extraction (only if quality passed)
     # =========================================================================
     llm_result = await _llm_extractor.extract(
         ocr_text_front=raw_text if request.side == "front" else None,
@@ -184,7 +180,7 @@ async def verify_document(
     )
 
     # =========================================================================
-    # Step 5: Field completeness check (new Layer B)
+    # Step 6: Field completeness check (Layer B)
     # =========================================================================
     extracted_fields = llm_result.extracted_fields if llm_result.status == "success" else {}
     completeness_score, missing_fields = _check_field_completeness(
@@ -192,7 +188,7 @@ async def verify_document(
     )
 
     # =========================================================================
-    # Step 6: Store in DB
+    # Step 7: Store in DB
     # =========================================================================
     try:
         if request.side == "front":
@@ -264,7 +260,7 @@ async def verify_document(
         raise HTTPException(status_code=500, detail=f"Failed to process document: {str(e)}")
 
     # =========================================================================
-    # Step 7: Build response
+    # Step 8: Build response
     # =========================================================================
     combined_score = 0.3 * quality_a["overall_score"] + 0.7 * completeness_score
 
