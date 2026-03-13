@@ -81,6 +81,8 @@ UNREADABLE_BUCKET = "UNREADABLE"
 
 FRONT_MANDATORY = {"registration_number", "owner_name", "fuel_type", "registration_date"}
 BACK_MANDATORY = {"registration_number", "vehicle_make"}
+# Fields that can appear on either side — checked across combined front+back fields
+COMBINED_MANDATORY = {"chassis_number", "engine_number"}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -224,7 +226,7 @@ def main():
             "vehicle_make", "chassis_number", "engine_number",
             "front_score", "front_missing", "front_quality_score", "front_acceptable",
             "back_score", "back_missing", "back_quality_score", "back_acceptable",
-            "both_passing", "front_error", "back_error",
+            "combined_missing", "both_passing", "front_error", "back_error",
             "scanned_at",
         ])
 
@@ -254,7 +256,13 @@ def main():
 
             front_score, front_missing = score_fields(front_result, FRONT_MANDATORY)
             back_score, back_missing = score_fields(back_result, BACK_MANDATORY)
-            both_passing = front_score == len(FRONT_MANDATORY) and back_score == len(BACK_MANDATORY)
+            # Check chassis/engine across combined front+back fields
+            combined_missing = sorted(COMBINED_MANDATORY - set(all_fields.keys()))
+            both_passing = (
+                front_score == len(FRONT_MANDATORY)
+                and back_score == len(BACK_MANDATORY)
+                and len(combined_missing) == 0
+            )
 
             fiq = front_result.get("image_quality") or {}
             biq = back_result.get("image_quality") or {}
@@ -281,7 +289,7 @@ def main():
                 fiq.get("overall_score", ""), fiq.get("is_acceptable", ""),
                 back_score, "|".join(back_missing),
                 biq.get("overall_score", ""), biq.get("is_acceptable", ""),
-                both_passing,
+                "|".join(combined_missing), both_passing,
                 front_result.get("error", ""),
                 back_result.get("error", ""),
                 datetime.utcnow().isoformat(),
