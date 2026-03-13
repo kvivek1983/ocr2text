@@ -147,6 +147,25 @@ class LLMExtractor:
             error_message=str(last_error),
         )
 
+    @staticmethod
+    def _extract_json(text: str) -> dict:
+        """Parse JSON from LLM response, handling markdown fences."""
+        import re
+        stripped = text.strip()
+        # Try direct parse first
+        try:
+            return json.loads(stripped)
+        except json.JSONDecodeError:
+            pass
+        # Try extracting from ```json ... ``` or ``` ... ```
+        match = re.search(r'```(?:json)?\s*\n?(.*?)\n?\s*```', stripped, re.DOTALL)
+        if match:
+            return json.loads(match.group(1).strip())
+        raise json.JSONDecodeError(
+            f"Could not parse JSON from LLM response (first 200 chars): {stripped[:200]}",
+            stripped, 0
+        )
+
     async def _call_anthropic(self, system_prompt, user_prompt, model):
         response = await self.anthropic_client.messages.create(
             model=model,
@@ -161,7 +180,7 @@ class LLMExtractor:
                 f"Empty LLM response: model={model}, stop_reason={response.stop_reason}, "
                 f"usage={response.usage}, content_len={len(response.content)}"
             )
-        extracted = json.loads(text)
+        extracted = self._extract_json(text)
         return extracted, response.usage.input_tokens, response.usage.output_tokens, {"text": text}
 
     async def _call_openai(self, system_prompt, user_prompt, model):
@@ -175,7 +194,7 @@ class LLMExtractor:
             response_format={"type": "json_object"},
         )
         text = response.choices[0].message.content
-        extracted = json.loads(text)
+        extracted = self._extract_json(text)
         token_in = response.usage.prompt_tokens
         token_out = response.usage.completion_tokens
         return extracted, token_in, token_out, {"text": text}
