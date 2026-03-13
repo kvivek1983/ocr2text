@@ -79,8 +79,8 @@ STATE_LABELS = {
 }
 UNREADABLE_BUCKET = "UNREADABLE"
 
-FRONT_MANDATORY = {"registration_number", "owner_name", "fuel_type", "registration_date", "address"}
-BACK_MANDATORY = {"registration_number", "vehicle_make", "chassis_number", "engine_number"}
+FRONT_MANDATORY = {"registration_number", "owner_name", "fuel_type", "registration_date"}
+BACK_MANDATORY = {"registration_number", "vehicle_make"}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
