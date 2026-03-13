@@ -71,11 +71,14 @@ def startup():
         Base.metadata.create_all(bind=engine)
     except Exception as e:
         print(f"Warning: Could not initialise database: {e}")
-    try:
-        from app.engines.paddle_engine import PaddleEngine
-        engine_router.register_engine("paddle", PaddleEngine())
-    except Exception as e:
-        print(f"Warning: Could not load PaddleOCR engine: {e}")
+    # --- OCR Engine Registration ---
+    # Only Google Vision is active. Others commented out to reduce deploy size.
+
+    # try:
+    #     from app.engines.paddle_engine import PaddleEngine
+    #     engine_router.register_engine("paddle", PaddleEngine())
+    # except Exception as e:
+    #     print(f"Warning: Could not load PaddleOCR engine: {e}")
 
     try:
         from app.engines.google_engine import GoogleVisionEngine
@@ -83,14 +86,14 @@ def startup():
     except Exception as e:
         print(f"Warning: Could not load Google Vision engine: {e}")
 
-    try:
-        from app.engines.easyocr_engine import EasyOCREngine
-        engine_router.register_engine("easyocr", EasyOCREngine())
-    except Exception as e:
-        print(f"Warning: Could not load EasyOCR engine: {e}")
+    # try:
+    #     from app.engines.easyocr_engine import EasyOCREngine
+    #     engine_router.register_engine("easyocr", EasyOCREngine())
+    # except Exception as e:
+    #     print(f"Warning: Could not load EasyOCR engine: {e}")
 
-    try:
-        from app.engines.tesseract_engine import TesseractEngine
-        engine_router.register_engine("tesseract", TesseractEngine())
-    except Exception as e:
-        print(f"Warning: Could not load Tesseract engine: {e}")
+    # try:
+    #     from app.engines.tesseract_engine import TesseractEngine
+    #     engine_router.register_engine("tesseract", TesseractEngine())
+    # except Exception as e:
+    #     print(f"Warning: Could not load Tesseract engine: {e}")

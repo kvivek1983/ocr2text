@@ -31,7 +31,7 @@ class ExtractionService:
     def extract(
         self,
         image_bytes: bytes,
-        engine: str = "paddle",
+        engine: str = "google",
         document_type: Optional[str] = None,
         include_raw_text: bool = True,
         side: Optional[str] = None,
@@ -40,17 +40,9 @@ class ExtractionService:
         # 1. Preprocess
         processed = self.preprocessor.process(image_bytes)
 
-        # 2. OCR — fallback to easyocr if primary engine crashes
+        # 2. OCR — Google Vision only (fallback engines commented out)
         ocr_engine = self.router.get_engine(engine)
-        try:
-            ocr_result = ocr_engine.extract(processed)
-        except Exception as primary_err:
-            fallback_name = "easyocr" if engine != "easyocr" else "tesseract"
-            try:
-                fallback_engine = self.router.get_engine(fallback_name)
-                ocr_result = fallback_engine.extract(processed)
-            except Exception:
-                raise primary_err  # re-raise original if fallback also fails
+        ocr_result = ocr_engine.extract(processed)
 
         raw_text = ocr_result["raw_text"]
         confidence = ocr_result["confidence"]

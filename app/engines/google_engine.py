@@ -1,14 +1,27 @@
+import base64
+import json
+import os
 import time
 from typing import Any, Dict
 
 from google.cloud import vision
+from google.oauth2 import service_account
 
 from .base import BaseOCREngine
 
 
 class GoogleVisionEngine(BaseOCREngine):
     def __init__(self):
-        self.client = vision.ImageAnnotatorClient()
+        # Support base64-encoded service account JSON via GOOGLE_CREDENTIALS_JSON env var
+        # (for Railway/Docker where you can't mount a file)
+        creds_b64 = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if creds_b64:
+            creds_json = json.loads(base64.b64decode(creds_b64))
+            credentials = service_account.Credentials.from_service_account_info(creds_json)
+            self.client = vision.ImageAnnotatorClient(credentials=credentials)
+        else:
+            # Falls back to GOOGLE_APPLICATION_CREDENTIALS file path or default credentials
+            self.client = vision.ImageAnnotatorClient()
 
     def extract(self, image: bytes) -> Dict[str, Any]:
         start = time.time()

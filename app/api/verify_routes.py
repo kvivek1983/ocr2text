@@ -49,7 +49,7 @@ async def verify_document(
     # 2. Run OCR (must complete before parallel step)
     ocr_result = extraction_service.extract(
         image_bytes=image_bytes,
-        engine="paddle",
+        engine="google",
         document_type=request.image_type,
         include_raw_text=True,
         side=request.side,
@@ -178,7 +178,7 @@ async def verify_document(
             llm_model=llm_result.metadata.llm_model,
             extraction_time_ms=llm_result.metadata.extraction_time_ms,
             prompt_version=llm_result.metadata.prompt_version,
-            ocr_engine="paddleocr",
+            ocr_engine="google_vision",
         ) if llm_result.status == "success" else None,
         llm_debug=llm_result.error_message if llm_result.status != "success" else None,
     )
