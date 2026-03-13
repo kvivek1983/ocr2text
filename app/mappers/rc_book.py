@@ -95,9 +95,10 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         # mParivahan / KA format
         "fuel",
         # OCR typos for "Fuel"
-        "ftel", "fues", "fue",
+        "ftel", "fues", "fue", "fud", "fual",
         # Very short garbled label "Fu." (dot included for specificity)
         "fu.",
+        # HR back-side format: fuel appears on back with "Fud" label (fud already added above)
     ],
     "registration_date": [
         "date of registration", "date of regn", "regn date", "date of reg", "reg date",
@@ -111,6 +112,8 @@ FRONT_FIELD_ALIASES: Dict[str, List[str]] = {
         "dafo of rogh", "dafo of regn",
         # TN format: merged label with no spaces
         "dateofregn",
+        # RJ format OCR garbles ("Dateot Regh", "Date of Regh")
+        "dateot regh", "date of regh", "dateot regn", "date of regrn",
     ],
     "registration_validity": [
         "regn validity", "regn. validity", "registration validity",
@@ -166,6 +169,10 @@ BACK_FIELD_ALIASES: Dict[str, List[str]] = {
         "manufacturername", "manufacturer name",
         # Generic label variations seen in AP/TN
         "mfg name", "mfg. name", "vehicle mfg",
+        # HR format — "Maufacturar" (OCR garble of "Manufacturer")
+        "maufacturar", "maufacturer", "manufacturar",
+        # GJ format — "Maha's Hame?" (OCR garble of "Maker's Name")
+        "maha's hame", "maha's name", "mahas hame",
         # "make" removed — too greedy, matches inside "Maker's Name" → "r's Name"
     ],
     "vehicle_model": [
