@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from pydantic import BaseModel
 
 class BaseGovtMapper(ABC):
     @abstractmethod
-    def normalize(self, raw_response: dict, doc_type: str) -> Dict[str, Any]:
+    def normalize(self, raw_response: dict, doc_type: str) -> BaseModel:
         ...

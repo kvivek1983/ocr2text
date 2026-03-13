@@ -1,6 +1,7 @@
 from app.govt.mappers.gridlines import GridlinesMapper
 from app.govt.mappers.cashfree import CashfreeMapper
 from app.govt.mappers.hyperverge import HyperVergeMapper
+from app.govt.schemas import RCGovtFields
 
 
 def test_gridlines_rc_normalize():
@@ -21,10 +22,11 @@ def test_gridlines_rc_normalize():
     }
     mapper = GridlinesMapper()
     fields = mapper.normalize(raw, "rc_book")
-    assert fields["owner_name"] == "SHIVA SAI TRAVELS"
-    assert fields["chassis_number"] == "MBHCZFB3SPG458278"
-    assert fields["rc_status"] == "ACTIVE"
-    assert fields["fitness_upto"] is None
+    assert isinstance(fields, RCGovtFields)
+    assert fields.owner_name == "SHIVA SAI TRAVELS"
+    assert fields.chassis_number == "MBHCZFB3SPG458278"
+    assert fields.rc_status == "ACTIVE"
+    assert fields.fitness_upto is None
 
 
 def test_cashfree_rc_normalize():
@@ -40,8 +42,9 @@ def test_cashfree_rc_normalize():
     }
     mapper = CashfreeMapper()
     fields = mapper.normalize(raw, "rc_book")
-    assert fields["owner_name"] == "SHIVA SAI TRAVELS"
-    assert fields["registration_number"] == "MH47BL1775"
+    assert isinstance(fields, RCGovtFields)
+    assert fields.owner_name == "SHIVA SAI TRAVELS"
+    assert fields.registration_number == "MH47BL1775"
 
 
 def test_hyperverge_rc_normalize_flat_format():
@@ -62,6 +65,7 @@ def test_hyperverge_rc_normalize_flat_format():
     }
     mapper = HyperVergeMapper()
     fields = mapper.normalize(raw, "rc_book")
-    assert fields["owner_name"] == "SHIVA SAI TRAVELS"
-    assert fields["fitness_upto"] == "2028-01-06"
-    assert fields["registration_number"] == "MH47BL1775"
+    assert isinstance(fields, RCGovtFields)
+    assert fields.owner_name == "SHIVA SAI TRAVELS"
+    assert fields.fitness_upto == "2028-01-06"
+    assert fields.registration_number == "MH47BL1775"
