@@ -150,7 +150,12 @@ class LLMExtractor:
             messages=[{"role": "user", "content": user_prompt}],
             timeout=settings.LLM_TIMEOUT_SECONDS,
         )
-        text = response.content[0].text
+        text = response.content[0].text if response.content else ""
+        if not text.strip():
+            raise ValueError(
+                f"Empty LLM response: model={model}, stop_reason={response.stop_reason}, "
+                f"usage={response.usage}, content_len={len(response.content)}"
+            )
         extracted = json.loads(text)
         return extracted, response.usage.input_tokens, response.usage.output_tokens, {"text": text}
 
