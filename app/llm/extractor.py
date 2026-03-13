@@ -31,6 +31,23 @@ DOC_TYPE_PROMPT_MAP = {
 class LLMExtractor:
     def __init__(self, provider: Optional[str] = None):
         self.provider = provider or settings.LLM_PROVIDER
+        self._anthropic_client = None
+        self._openai_client = None
+
+    @property
+    def anthropic_client(self):
+        if self._anthropic_client is None:
+            self._anthropic_client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+        return self._anthropic_client
+
+    @property
+    def openai_client(self):
+        if self._openai_client is None:
+            self._openai_client = AsyncOpenAI(
+                api_key=settings.OPENAI_API_KEY,
+                timeout=settings.LLM_TIMEOUT_SECONDS,
+            )
+        return self._openai_client
 
     def _load_prompt(self, document_type: str, version: str = "v1") -> str:
         prompt_name = DOC_TYPE_PROMPT_MAP[document_type]
@@ -126,8 +143,7 @@ class LLMExtractor:
         )
 
     async def _call_anthropic(self, system_prompt, user_prompt, model):
-        client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-        response = await client.messages.create(
+        response = await self.anthropic_client.messages.create(
             model=model,
             max_tokens=1024,
             system=system_prompt,
@@ -139,11 +155,7 @@ class LLMExtractor:
         return extracted, response.usage.input_tokens, response.usage.output_tokens, {"text": text}
 
     async def _call_openai(self, system_prompt, user_prompt, model):
-        client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            timeout=settings.LLM_TIMEOUT_SECONDS,
-        )
-        response = await client.chat.completions.create(
+        response = await self.openai_client.chat.completions.create(
             model=model,
             max_tokens=1024,
             messages=[
