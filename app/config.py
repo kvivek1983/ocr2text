@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
 
     # OCR Settings
-    DEFAULT_ENGINE: str = "paddle"
+    DEFAULT_ENGINE: str = "easyocr"
     ENABLE_PREPROCESSING: bool = True
     CONFIDENCE_THRESHOLD: float = 0.5
 
