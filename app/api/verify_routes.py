@@ -121,25 +121,25 @@ async def verify_document(
     if not quality_a["is_acceptable"]:
         # Store record with rejection — no OCR text (Vision was never called)
         try:
-            if request.side == "front":
+            existing = repo.get_latest_for_driver(request.driver_id, request.image_type)
+            if existing:
+                # Update existing record with re-uploaded side
+                update_kwargs = {
+                    f"{request.side}_url": request.image_url,
+                    f"{request.side}_quality_score": quality_a["overall_score"],
+                    f"{request.side}_issues": quality_a["feedback"],
+                    "overall_status": "rejected",
+                }
+                record = repo.update(existing, **update_kwargs)
+            else:
+                # Create new record (any side can be first)
                 record = repo.create(
                     driver_id=request.driver_id,
                     doc_type=request.image_type,
-                    front_url=request.image_url,
+                    **{f"{request.side}_url": request.image_url},
                     overall_status="rejected",
-                    front_quality_score=quality_a["overall_score"],
-                    front_issues=quality_a["feedback"],
-                )
-            else:
-                record = repo.get_pending_back_for_driver(request.driver_id, request.image_type)
-                if not record:
-                    raise HTTPException(status_code=400, detail="Please upload the front side first.")
-                record = repo.update(
-                    record,
-                    back_url=request.image_url,
-                    overall_status="rejected",
-                    back_quality_score=quality_a["overall_score"],
-                    back_issues=quality_a["feedback"],
+                    **{f"{request.side}_quality_score": quality_a["overall_score"]},
+                    **{f"{request.side}_issues": quality_a["feedback"]},
                 )
             validation_id = record.id
         except HTTPException:
@@ -191,36 +191,31 @@ async def verify_document(
     # Step 7: Store in DB
     # =========================================================================
     try:
-        if request.side == "front":
-            existing = repo.get_pending_back_for_driver(request.driver_id, request.image_type)
-            if existing:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Front side already uploaded. Please upload the back side.",
-                )
+        existing = repo.get_latest_for_driver(request.driver_id, request.image_type)
+        other_side = "back" if request.side == "front" else "front"
+
+        if existing:
+            # Update existing record — driver is re-uploading or adding other side
+            has_other_side = getattr(existing, f"{other_side}_url") is not None
+            new_status = "pending_verification" if has_other_side else f"pending_{other_side}"
+            update_kwargs = {
+                f"{request.side}_url": request.image_url,
+                f"{request.side}_quality_score": quality_a["overall_score"],
+                f"{request.side}_issues": quality_a["feedback"],
+                f"ocr_raw_text_{request.side}": raw_text,
+                "overall_status": new_status,
+            }
+            record = repo.update(existing, **update_kwargs)
+        else:
+            # First upload for this driver+doc_type — any side can be first
             record = repo.create(
                 driver_id=request.driver_id,
                 doc_type=request.image_type,
-                front_url=request.image_url,
-                overall_status="pending_back",
-                front_quality_score=quality_a["overall_score"],
-                front_issues=quality_a["feedback"],
-                ocr_raw_text_front=raw_text,
-            )
-        else:
-            record = repo.get_pending_back_for_driver(request.driver_id, request.image_type)
-            if not record:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Please upload the front side first.",
-                )
-            record = repo.update(
-                record,
-                back_url=request.image_url,
-                overall_status="pending_verification",
-                back_quality_score=quality_a["overall_score"],
-                back_issues=quality_a["feedback"],
-                ocr_raw_text_back=raw_text,
+                **{f"{request.side}_url": request.image_url},
+                overall_status=f"pending_{other_side}",
+                **{f"{request.side}_quality_score": quality_a["overall_score"]},
+                **{f"{request.side}_issues": quality_a["feedback"]},
+                **{f"ocr_raw_text_{request.side}": raw_text},
             )
 
         validation_id = record.id
@@ -313,6 +308,126 @@ def get_verification_status(validation_id: str, db: Session = Depends(get_db)):
         "approval_method": record.approval_method,
         "govt_match_score": record.govt_match_score,
         "requires_review": record.requires_review,
+    }
+
+
+@verify_router.get("/verify/documents")
+def list_documents(
+    driver_id: str = None,
+    doc_type: str = None,
+    status: str = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    """List documents for review — filter by driver_id, doc_type, status."""
+    q = db.query(DocumentValidation)
+    if driver_id:
+        q = q.filter(DocumentValidation.driver_id == driver_id)
+    if doc_type:
+        q = q.filter(DocumentValidation.doc_type == doc_type)
+    if status:
+        q = q.filter(DocumentValidation.overall_status == status)
+    records = q.order_by(DocumentValidation.created_at.desc()).limit(limit).all()
+    return [
+        {
+            "validation_id": r.id,
+            "driver_id": r.driver_id,
+            "doc_type": r.doc_type,
+            "doc_number": r.doc_number,
+            "overall_status": r.overall_status,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "front_url": r.front_url,
+            "back_url": r.back_url,
+        }
+        for r in records
+    ]
+
+
+@verify_router.get("/verify/document/{validation_id}/review")
+def get_document_review(validation_id: str, db: Session = Depends(get_db)):
+    """Full review view: LLM extracted fields, govt data, images, quality scores."""
+    repo = DocumentValidationRepository(db)
+    record = repo.get_by_id(validation_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Validation record not found")
+
+    # LLM extraction
+    llm_repo = LLMExtractionRepository(db)
+    llm_record = llm_repo.get_by_validation_id(validation_id)
+
+    # Govt verification (if exists)
+    govt_repo = GovtVerificationRepository(db)
+    govt_record = govt_repo.get_by_validation_id(validation_id)
+
+    # Field comparisons (if exist)
+    comp_repo = FieldComparisonRepository(db)
+    comparisons = comp_repo.get_by_validation_id(validation_id)
+
+    return {
+        "validation_id": record.id,
+        "doc_type": record.doc_type,
+        "doc_number": record.doc_number,
+        "driver_id": record.driver_id,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+        "overall_status": record.overall_status,
+        "verification_status": record.verification_status,
+        "approval_method": record.approval_method,
+
+        # Images
+        "images": {
+            "front_url": record.front_url,
+            "back_url": record.back_url,
+        },
+
+        # Quality scores
+        "quality": {
+            "front_score": record.front_quality_score,
+            "back_score": record.back_quality_score,
+            "front_issues": record.front_issues,
+            "back_issues": record.back_issues,
+        },
+
+        # LLM extracted fields (structured data)
+        "llm_extraction": {
+            "extracted_fields": llm_record.extracted_fields if llm_record else None,
+            "model": f"{llm_record.model_provider}/{llm_record.model_name}" if llm_record else None,
+            "confidence": llm_record.llm_confidence if llm_record else None,
+            "cost_inr": float(llm_record.cost_inr) if llm_record and llm_record.cost_inr else None,
+            "extraction_time_ms": llm_record.extraction_time_ms if llm_record else None,
+        },
+
+        # OCR raw text
+        "ocr_raw_text": {
+            "front": record.ocr_raw_text_front,
+            "back": record.ocr_raw_text_back,
+        },
+
+        # Govt verification (RTO / govt portal data)
+        "govt_verification": {
+            "status": govt_record.status if govt_record else None,
+            "govt_fields": govt_record.govt_fields if govt_record else None,
+            "match_score": record.govt_match_score,
+        } if govt_record else None,
+
+        # Field-by-field comparison (LLM vs Govt)
+        "field_comparisons": [
+            {
+                "field": c.field_name,
+                "llm_value": c.llm_value,
+                "govt_value": c.govt_value,
+                "is_match": c.is_match,
+                "similarity": c.similarity_score,
+            }
+            for c in comparisons
+        ] if comparisons else None,
+
+        # Review status
+        "review": {
+            "requires_review": record.requires_review,
+            "reviewed_at": record.reviewed_at.isoformat() if record.reviewed_at else None,
+            "reviewed_by": record.reviewed_by,
+            "review_notes": record.review_notes,
+        },
     }
 
 

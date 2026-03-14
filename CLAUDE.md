@@ -18,16 +18,18 @@
 ```
 POST /verify/document
   1. Fetch image
-  2. PARALLEL: Image Quality (OpenCV) + Google Vision OCR
-  3. Quality Gate: reject if layer_a_score < 0.4 (no LLM call = save cost)
-  4. LLM Haiku extraction (raw_text → structured JSON)
+  2. Image Quality Check (OpenCV — blur/brightness/resolution)
+  3. Quality Gate: reject if layer_a_score < 0.4 (skips Vision + LLM = save cost)
+  4. Google Vision OCR (only if quality passed)
+  5. LLM Haiku extraction (raw_text → structured JSON)
   5. Field completeness check (Layer B)
   6. Store in DB + return response
 ```
 
 ## Backlog
 - [ ] Build fuzzy logic on Google Vision raw text dataset — identify state/RTO, pass hints to Haiku prompts
-- [ ] Move quality check BEFORE Google Vision API call (currently parallel — can save Vision cost too)
+- [x] Move quality check BEFORE Google Vision API call (done — saves Vision + LLM cost)
+- [x] Allow any-order upload (front/back) — done, either side can be first + re-upload updates existing record
 - [ ] Enable govt verification once reseller keys configured
 - [ ] Seed `govt_resellers` table with Gridlines, Cashfree, HyperVerge configs
 - [ ] Implement DL/Aadhaar govt mapper normalize methods

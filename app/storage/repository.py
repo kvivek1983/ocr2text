@@ -50,6 +50,18 @@ class DocumentValidationRepository:
             .first()
         )
 
+    def get_latest_for_driver(self, driver_id: str, doc_type: str) -> Optional[DocumentValidation]:
+        """Find the most recent record for a driver + doc_type (any status)."""
+        return (
+            self.session.query(DocumentValidation)
+            .filter(
+                DocumentValidation.driver_id == driver_id,
+                DocumentValidation.doc_type == doc_type,
+            )
+            .order_by(DocumentValidation.created_at.desc())
+            .first()
+        )
+
     def update(self, record: DocumentValidation, **kwargs) -> DocumentValidation:
         for key, value in kwargs.items():
             setattr(record, key, value)
